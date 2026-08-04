@@ -1,0 +1,239 @@
+version: 2
+
+models:
+  - name: fct_signup_funnel
+    description: >
+      Gold accumulating snapshot fact (.notes/modeling.md). Grain: one row
+      per subscriber signup attempt (signup_id), updated in place as the
+      attempt crosses registration, email verification,
+      payment-method-added, plan-selected, and first-stream milestones,
+      until the funnel completes or expires. ~70,000 rows.
+
+      This is the only accumulating snapshot in the project, and it works
+      differently from every other fact here: fct_playback_events and
+      fct_watchlist_adds are transaction facts (one immutable row per
+      event, appended, never revised), fct_billing_transactions is the
+      same, and fct_daily_subscription_snapshot is a periodic snapshot
+      (one row per subscriber per day, a new row each day, existing rows
+      never revised). fct_signup_funnel instead keeps exactly one row per
+      signup attempt for the attempt's entire lifecycle, and a rebuild can
+      change that row's milestone timestamps, milestone date keys, lag
+      measures, funnel_status, and is_completed as new milestones are
+      reached or as time passes, rather than only ever adding rows. This
+      is the standard Kimball "accumulating snapshot" pattern, used for
+      workflows with a well-defined beginning and end and a small,
+      predictable set of milestones, and is a common interview topic
+      precisely because it is the one fact type where a row is designed to
+      be revised rather than appended.
+
+      Built as a full-refresh table, not incremental: there is no useful
+      merge key semantics when every column of an existing row can still
+      change on the next build, so each run recomputes every row from
+      silver_signup_funnel and the current dimension state from scratch.
+
+      subscriber_sk resolution deviates from modeling.md's literal
+      point-in-time join predicate. silver_signup_funnel.registered_at is
+      truncated to whole-second precision (confirmed against the real
+      data: every timestamp column on this table lands exactly on the
+      second), while dim_subscriber.effective_from for the same
+      underlying signup event carries the true microsecond timestamp
+      inherited from silver_subscriber_events, always at or after the
+      truncated value by less than one second (verified: 0 to 999
+      milliseconds across all 62,976 registered rows). The literal
+      predicate (registered_at >= effective_from and < effective_to)
+      therefore resolved only 75 of 62,976 registered rows before the
+      fix. This model widens the join's lower bound by exactly one
+      second (the maximum possible truncation error) to compensate, which
+      resolves all 62,976 rows with zero ambiguity in the real dataset.
+      See the model SQL and .notes/decisions.md for the full reasoning.
+
+      plan_sk resolution: silver_signup_funnel carries selected_plan_id
+      (a plan_id, checked against the real data: all 30 distinct values
+      match dim_plan.plan_id exactly, no unmatched plan ids), populated
+      only once plan_selected_at is set. dim_plan has no version history
+      (Type 3, one row per plan_id), so this is a direct natural-key join
+      with no point-in-time predicate, unlike subscriber_sk.
+
+      funnel_status is evaluated against wall-clock build time, not any
+      source column: an in_progress attempt whose registered_at crosses
+      the 30-day expiry threshold becomes expired on a later build with
+      no change to the underlying silver row at all. This time-dependence
+      is intentional and expected, per modeling.md: two builds run on
+      different days against byte-identical source data can legitimately
+      disagree on funnel_status (and is_completed) for any attempt sitting
+      near the 30-day boundary. Every other column is a pure function of
+      the source data and dimension state and is byte-identical across
+      such rebuilds.
+    columns:
+      - name: signup_id
+        description: degenerate dimension, the grain key. One row per signup attempt, unique merge key for this fact.
+        tests:
+          - not_null
+          - unique
+      - name: subscriber_sk
+        description: >
+          FK to dim_subscriber, resolved to the subscriber's version
+          current at registered_at and then pinned: later milestones on
+          the same signup_id never repoint this column, even if the
+          subscriber's dim_subscriber version changes again afterward.
+          Unknown member (md5('-1')) until registration occurs, since
+          there is no subscriber to pin to before then. See the model
+          description for the one-second join tolerance this resolution
+          requires on the real data.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_subscriber')
+                field: subscriber_sk
+      - name: plan_sk
+        description: >
+          FK to dim_plan, resolved from silver_signup_funnel's
+          selected_plan_id once plan_selected_at is set. Unknown member
+          (md5('-1')) until the plan-selected milestone occurs.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_plan')
+                field: plan_sk
+      - name: signup_date_key
+        description: FK to the dim_signup_date role-playing view, the calendar date the attempt began (from attempt_started_at). Always populated, every attempt has a start.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_signup_date')
+                field: signup_date_key
+      - name: registered_date_key
+        description: >
+          FK to the base dim_date (not a role-playing view), the calendar
+          date the registration milestone occurred. NULL until
+          registration happens: this is the declared exception in
+          modeling.md where a NULL milestone FK is correct and a sentinel
+          date is deliberately not substituted, because a sentinel would
+          poison lag arithmetic downstream.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: email_verified_date_key
+        description: FK to the base dim_date, the calendar date the email verification milestone occurred. NULL until that milestone happens, same nullability rule as registered_date_key.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: payment_method_added_date_key
+        description: FK to the base dim_date, the calendar date the payment-method-added milestone occurred. NULL until that milestone happens, same nullability rule as registered_date_key.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: plan_selected_date_key
+        description: FK to the base dim_date, the calendar date the plan-selected milestone occurred. NULL until that milestone happens, same nullability rule as registered_date_key.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: first_stream_date_key
+        description: FK to the base dim_date, the calendar date the first-stream milestone occurred. NULL until that milestone happens, same nullability rule as registered_date_key. Its presence is what makes funnel_status = completed.
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: registered_at
+        description: milestone event time, carried through from silver verbatim. NULL until the subscriber registers. Truncated to whole-second precision in the source, see the model description.
+      - name: email_verified_at
+        description: milestone event time, carried through from silver verbatim. NULL until the subscriber verifies their email.
+      - name: payment_method_added_at
+        description: milestone event time, carried through from silver verbatim. NULL until the subscriber adds a payment method.
+      - name: plan_selected_at
+        description: milestone event time, carried through from silver verbatim. NULL until the subscriber selects a plan.
+      - name: first_stream_at
+        description: milestone event time, carried through from silver verbatim. NULL until the subscriber's first stream. Its presence is what completes the funnel.
+      - name: hours_registration_to_verification
+        description: >
+          lag measure in hours (fractional, computed from seconds so
+          sub-hour gaps are not lost to truncation), from registered_at to
+          email_verified_at. NULL until both of those milestones have
+          occurred. Never negative on real data, verified by a
+          model-level data test below.
+      - name: hours_verification_to_payment
+        description: >
+          lag measure in hours (fractional), from email_verified_at to
+          payment_method_added_at. NULL until both of those milestones
+          have occurred. Never negative on real data, verified by a
+          model-level data test below.
+      - name: hours_registration_to_first_stream
+        description: >
+          lag measure in hours (fractional), total funnel duration from
+          registered_at to first_stream_at. NULL until the funnel
+          completes (both milestones present, equivalent to funnel_status
+          = completed). Never negative on real data, verified by a
+          model-level data test below.
+      - name: funnel_status
+        description: >
+          attribute, one of in_progress, completed, expired. completed
+          means first_stream_at is set. expired means first_stream_at is
+          still NULL and current build time is at least 30 days past
+          registered_at (an attempt that never registered can never be
+          marked expired under this rule, it stays in_progress
+          indefinitely, per modeling.md's literal expiry definition,
+          which is stated relative to registered_at). This column is
+          evaluated against wall-clock time at build time, not any source
+          column, so it is deliberately time-dependent: rebuilding this
+          model on a later day, with no new source data at all, can move
+          a row from in_progress to expired. See the model description
+          for why that is correct behavior for this fact type, not a
+          defect.
+        tests:
+          - not_null
+          - accepted_values:
+              values:
+                - in_progress
+                - completed
+                - expired
+      - name: is_completed
+        description: >
+          flag, true exactly when funnel_status = completed. Provided as
+          a direct boolean alongside funnel_status because "did this
+          attempt ever reach first stream" is the single most common
+          funnel question and does not deserve a string comparison in
+          every downstream query. Inherits funnel_status's time-dependence
+          only in the sense that it is derived from it; is_completed
+          itself never flips from true back to false (first_stream_at,
+          once set, is never unset), it can only newly become true on a
+          later build.
+        tests:
+          - not_null
+      - name: loaded_at
+        description: >
+          audit, wall-clock time this row was last written by a build of
+          this model. Unlike every other fact in this project, this is
+          genuinely a "last updated" timestamp, not just a "first
+          inserted" timestamp, because this row can be rewritten by a
+          later build. Never used in any join or hash.
+        tests:
+          - not_null
+    tests:
+      # each lag measure must be NULL exactly when its prerequisite
+      # milestones are not both present, and non-negative whenever it is
+      # populated, per modeling.md's explicit nullability rule for this
+      # table. Model-level (not nested under the column) because
+      # dbt_utils.expression_is_true injects the column as a bare prefix
+      # to the expression when nested under a column's tests block, which
+      # breaks a self-contained boolean expression like this one.
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(hours_registration_to_verification is null) = (registered_at is null or email_verified_at is null) and (hours_registration_to_verification is null or hours_registration_to_verification >= 0)"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(hours_verification_to_payment is null) = (email_verified_at is null or payment_method_added_at is null) and (hours_verification_to_payment is null or hours_verification_to_payment >= 0)"
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "(hours_registration_to_first_stream is null) = (registered_at is null or first_stream_at is null) and (hours_registration_to_first_stream is null or hours_registration_to_first_stream >= 0)"
