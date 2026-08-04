@@ -1,0 +1,229 @@
+version: 2
+
+models:
+  - name: fct_daily_subscription_snapshot
+    description: >
+      Gold periodic snapshot fact (.notes/modeling.md). Grain: one row per
+      subscriber per calendar day, capturing plan, status, and MRR
+      contribution as of end of day. Unique key: (snapshot_date_key,
+      subscriber_sk).
+
+      Built as a full-refresh table, not incremental (that conversion is a
+      later work package). Row generation does not cross join the ~50,000
+      subscriber roster against the full dim_date spine and filter down:
+      it generates each subscriber's exact [signup_date, end_date] day
+      range directly with sequence()/unnest, which produces only the rows
+      the grain requires (~27M in the real data, not the ~91M an
+      unfiltered cross join against dim_date's 1,826-row spine would
+      materialize first). See the model SQL's header comment for the full
+      reasoning, including why this matters under the shared Trino
+      instance's 1.5GB per-query memory cap.
+
+      Rows exist from a subscriber's signup_date through the earlier of
+      their churn date and the snapshot horizon; churned subscribers stop
+      accruing rows the day after churn (the last row is the churn day
+      itself). The snapshot horizon is bounded to the latest day this
+      pipeline has real data for, computed as
+      greatest(max(dim_subscriber.effective_from)::date,
+      max(silver_billing_ledger.transaction_posted_at)::date), not
+      dim_date's full range out to 2027-12-31. Verified against real data:
+      both sources cap at 2026-08-03, so the real build's horizon is
+      2026-08-03.
+
+      subscriber_sk resolves via the standard point-in-time interval-
+      overlap predicate against dim_subscriber's half-open [effective_from,
+      effective_to), evaluated at the end-of-day snapshot instant rather
+      than an event timestamp, per modeling.md's point-in-time join rule.
+      subscription_status is repeated from that resolved dim_subscriber
+      row, a deliberate denormalization for scan-cheap filtering at this
+      row count; the dim remains the source of truth (see the
+      reconciliation test below).
+
+      plan_sk resolution follows modeling.md's clarified rule, not a join
+      through dim_subscriber's plan_tier: dim_subscriber tracks plan_tier,
+      which maps many-to-one from plan_id (7 to 8 concrete plan rows share
+      one tier), so the only source of an actual plan_id is
+      silver_billing_ledger. This model builds a half-open plan-history
+      interval per subscriber directly from silver_billing_ledger (one
+      interval per billing transaction, ordered by transaction_posted_at)
+      and resolves plan_sk as the plan_id from the most recent transaction
+      at or before the snapshot instant, joined to dim_plan. Before any
+      billing transaction has occurred for a subscriber (an unbilled
+      trial), plan_sk takes dim_plan's unknown member; this accounts for
+      roughly 1.39M of the real fact's rows.
+    columns:
+      - name: snapshot_date_key
+        description: FK to dim_date, half of the grain key. The calendar day this row is a snapshot of, in YYYYMMDD form.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+
+      - name: subscriber_sk
+        description: >
+          FK to dim_subscriber, the version current at the end of the
+          snapshot day (resolved by the point-in-time interval join
+          against effective_from/effective_to at the snapshot instant, not
+          the version current at build time). Half of the grain key. Falls
+          back to the unknown member (dim_subscriber's subscriber_id =
+          '-1' row) only as a guard; the fallback does not fire in the
+          real data because every generated day falls inside some version
+          of the subscriber it was generated from.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_subscriber')
+              field: subscriber_sk
+
+      - name: plan_sk
+        description: >
+          FK to dim_plan, the concrete plan held at end of the snapshot
+          day. Resolved from the subscriber's most recent
+          silver_billing_ledger transaction at or before the snapshot
+          instant, not from dim_subscriber's plan_tier (see the model
+          description for why plan_tier cannot answer this). Falls back to
+          the unknown member (dim_plan's plan_id = '-1' row) before any
+          billing transaction has occurred for the subscriber, which is
+          the real, expected state for unbilled trial days, not a join
+          failure.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_plan')
+              field: plan_sk
+
+      - name: subscription_status
+        description: >
+          Subscriber account status at end of the snapshot day, repeated
+          from the resolved dim_subscriber row. Domain: trial, active,
+          paused, churned. Deliberate denormalization so status filters
+          never require a join at this row count; dim_subscriber remains
+          the source of truth, checked by the reconciliation test below.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - trial
+                  - active
+                  - paused
+                  - churned
+
+      - name: mrr_amount_usd
+        description: >
+          Semi-additive measure: monthly recurring revenue contribution of
+          this subscriber on this day, in US dollars. Additive across
+          subscribers on the same day (sum across subscriber_sk for one
+          snapshot_date_key is a valid total MRR for that day), but never
+          additive across days (summing one subscriber's mrr_amount_usd
+          over a date range double, triple, or N-counts the same recurring
+          revenue for every day it recurred; the correct way to roll this
+          measure up over time is an average or a point-in-time value on
+          one chosen day, never a sum). Computed as the resolved plan's
+          current_price_usd when billing_period is monthly, current_price_
+          usd / 12 (rounded to 2 places) when annual, and 0.00 when
+          subscription_status is trial or paused regardless of plan price.
+          Also 0.00 before a subscriber's first billing transaction, since
+          plan_sk is the unknown member then and its current_price_usd is
+          0.00.
+        tests:
+          - not_null
+
+      - name: tenure_days
+        description: Non-additive measure, days since signup_date, inclusive, as of the snapshot day (1 on the signup day itself).
+        tests:
+          - not_null
+
+      - name: is_in_trial
+        description: Flag, true exactly when subscription_status is trial on this row.
+        tests:
+          - not_null
+
+      - name: loaded_at
+        description: Wall-clock time this gold table was built. Audit only, never used in any join or hash, and by design differs between successive builds even when every other column is byte-identical.
+        tests:
+          - not_null
+
+    tests:
+      # (snapshot_date_key, subscriber_sk) uniqueness, split into four
+      # year-partitioned queries rather than one full-table check. A single
+      # `group by snapshot_date_key, subscriber_sk` over all 27,011,346
+      # rows was tried first and confirmed to exceed the shared Trino
+      # instance's 1.5GB per-query memory cap (EXCEEDED_LOCAL_MEMORY_LIMIT,
+      # HashAggregationOperator hit exactly 1.50GB): with the composite key
+      # almost fully unique (27,011,346 rows, ~27M distinct groups), the
+      # hash aggregation has essentially no compression to fall back on,
+      # unlike a low-cardinality group by. Splitting by calendar year is a
+      # provably complete decomposition of this specific check, not a
+      # sample: snapshot_date_key is itself part of the composite key being
+      # tested, so any duplicate pair necessarily shares one
+      # snapshot_date_key and therefore falls entirely inside exactly one
+      # of these four partitions. Verified the real per-year row counts
+      # before picking the split (2023: 1,234,432, 2024: 5,323,891, 2025:
+      # 10,953,814, 2026 partial: 9,499,209), so even the largest partition
+      # is under half the row count that failed, comfortably inside the
+      # 1.5GB cap. See .notes/decisions.md.
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - snapshot_date_key
+            - subscriber_sk
+          config:
+            where: "snapshot_date_key < 20240101"
+          name: unique_snapshot_date_key_subscriber_sk_2023
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - snapshot_date_key
+            - subscriber_sk
+          config:
+            where: "snapshot_date_key >= 20240101 and snapshot_date_key < 20250101"
+          name: unique_snapshot_date_key_subscriber_sk_2024
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - snapshot_date_key
+            - subscriber_sk
+          config:
+            where: "snapshot_date_key >= 20250101 and snapshot_date_key < 20260101"
+          name: unique_snapshot_date_key_subscriber_sk_2025
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - snapshot_date_key
+            - subscriber_sk
+          config:
+            where: "snapshot_date_key >= 20260101"
+          name: unique_snapshot_date_key_subscriber_sk_2026
+
+      # reconciliation test, per modeling.md's open item: "the dim remains
+      # the source of truth and a reconciliation test compares the two at
+      # load time." Scoped to the most recent snapshot day only (the
+      # ~50,000-row roster, one row per subscriber) rather than all ~27M
+      # rows: every other day's subscription_status is, by construction,
+      # copied straight from whatever dim_subscriber row the point-in-time
+      # join matched, so re-checking all 27M rows would mostly just
+      # restate the model's own join logic. The most recent day is the one
+      # day where this fact's resolved status can be checked against
+      # dim_subscriber's is_current row for genuine drift: it asserts the
+      # point-in-time join picked the version that is presently current,
+      # not a stale one, which is exactly the class of bug an interval-join
+      # off-by-one would produce. Uses the exists() form rather than
+      # scalar equality to avoid a NULL-vs-no-match ambiguity.
+      #
+      # Written using the `dbt_subquery` alias, not a bare reference to
+      # this model's own name: dbt_utils generic tests wrap {{ model }} in
+      # `(select * from <relation> where <where>) dbt_subquery` whenever a
+      # `where` config is present (dbt-core's default__get_where_subquery),
+      # so the outer row here is reached through that alias, not through
+      # the model's bare relation name (that bare-name trick only applies
+      # with no `where` config, see .notes/decisions.md's dim_subscriber
+      # entry on this same trap).
+      - dbt_utils.expression_is_true:
+          expression: >
+            exists (
+              select 1
+              from {{ ref('dim_subscriber') }} as ds
+              where ds.subscriber_sk = dbt_subquery.subscriber_sk
+                and ds.is_current
+                and ds.status = dbt_subquery.subscription_status
+            )
+          config:
+            where: "snapshot_date_key = (select max(snapshot_date_key) from {{ env_var('DBT_TRINO_SCHEMA', 'dev') }}_facts.fct_daily_subscription_snapshot)"
