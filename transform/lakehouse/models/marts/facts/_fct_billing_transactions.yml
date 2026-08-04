@@ -1,0 +1,169 @@
+version: 2
+
+models:
+  - name: fct_billing_transactions
+    description: >
+      Gold transaction fact (.notes/modeling.md). Grain: one row per
+      discrete billing ledger event (charge, refund, credit, or proration)
+      posted to one subscriber's account. billing_transaction_id is the
+      degenerate dimension and unique merge key. Built as a full-refresh
+      table this work package, not incremental (a later work package):
+      silver_billing_ledger is already deduplicated to 1,500,100 distinct
+      billing_transaction_id values, so this build reprocesses the whole
+      source every run rather than diffing against prior state.
+
+      subscriber_sk resolves through the exact point-in-time
+      interval-overlap predicate modeling.md's "Point-in-time join rule"
+      section gives for this fact: transaction_posted_at against
+      dim_subscriber's half-open [effective_from, effective_to), falling
+      back to the unknown member only when no version's interval contains
+      the transaction instant. Verified against real data that this
+      fallback fires 212 times out of 1,500,100 rows (0.014%): every one
+      of the 212 is a subscriber that does exist in dim_subscriber, but
+      whose earliest transaction lands a fraction of a second before that
+      subscriber's very first version's effective_from. Root cause:
+      silver_billing_ledger.transaction_posted_at is truncated to
+      whole-second precision on every one of its 1,500,100 rows (confirmed
+      directly, microsecond component is exactly 0 on every row), while
+      dim_subscriber.effective_from retains true source microsecond
+      precision, so a transaction that truly happened microseconds after
+      signup can round down to just before it. This is the "should be
+      rare" case modeling.md's own coalesce guard anticipates, not a join
+      bug; the literal predicate was implemented as given and is not
+      changed here. See .notes/decisions.md for the full trace.
+
+      plan_sk is a plain FK to dim_plan on plan_id (dim_plan is Type 3, not
+      versioned, so no point-in-time join applies). Verified zero misses
+      against real data.
+
+      payment_method_sk resolves by joining silver's four raw payment
+      columns to dim_payment_method's pre-enumerated combination (seeded as
+      the full cross product of this same silver table's observed domain).
+      Verified zero misses against real data.
+
+      billing_date_key resolves through the dim_billing_date role-playing
+      view, not the base dim_date, joined on the calendar date component of
+      transaction_posted_at.
+
+      Sign convention on amount_usd and tax_amount_usd (modeling.md:
+      "charges positive, refunds and credits negative, prorations either
+      sign") is a straight passthrough, not derived: verified against real
+      data before writing this model that silver_billing_ledger already
+      encodes the convention exactly as specified with zero exceptions
+      across all 1,500,100 rows, grouped by transaction_type: charge only
+      ever positive (0.22 to 89.99 combined across both measures), credit
+      and refund only ever negative, proration spans both signs on both
+      measures. No sign-flipping or absolute-value logic was needed or
+      applied.
+    columns:
+      - name: billing_transaction_id
+        description: Degenerate dimension and grain key, carried verbatim from silver. Unique per modeling.md's grain declaration; silver_billing_ledger is already deduplicated to this id by the silver work package.
+        tests:
+          - unique
+          - not_null
+
+      - name: subscriber_sk
+        description: >
+          FK to dim_subscriber, resolved to the version whose
+          [effective_from, effective_to) interval contains
+          transaction_posted_at. Falls back to the unknown member
+          (dim_subscriber's subscriber_id = '-1' row) when no version's
+          interval contains the transaction instant, which happens on 212
+          of 1,500,100 rows in the real data, all a whole-second
+          truncation edge case at the subscriber's very first version
+          boundary, not a resolution bug. See the model description for
+          the full explanation.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_subscriber')
+              field: subscriber_sk
+
+      - name: plan_sk
+        description: FK to dim_plan, resolved by a plain equality join on plan_id (dim_plan has no version history to pin against). Falls back to the unknown member (dim_plan.plan_id = '-1' row) if a plan_id somehow does not resolve; zero misses in the real data.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_plan')
+              field: plan_sk
+
+      - name: payment_method_sk
+        description: FK to dim_payment_method, resolved by joining the (payment_type, is_promo_applied, is_retry, is_autopay) combination observed on this row to the matching pre-enumerated row in the junk dimension. Falls back to the unknown member (dim_payment_method.payment_type = 'Unknown' row) if the combination somehow does not resolve; zero misses in the real data, since dim_payment_method was seeded from this same silver table's observed domain.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_payment_method')
+              field: payment_method_sk
+
+      - name: billing_date_key
+        description: FK to the dim_billing_date role-playing view (not the base dim_date), derived from the calendar date component of transaction_posted_at.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_billing_date')
+              field: billing_date_key
+
+      - name: transaction_posted_at
+        description: Event time of the billing ledger entry, at whole-second precision as carried from silver (silver_billing_ledger's own microsecond component is always zero). Drives the subscriber_sk point-in-time resolution above.
+        tests:
+          - not_null
+
+      - name: transaction_type
+        description: "Kind of billing event this row represents. Domain: charge, refund, credit, proration."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - charge
+                  - refund
+                  - credit
+                  - proration
+
+      - name: amount_usd
+        description: >
+          Additive measure, the transaction amount in US dollars. Signed
+          per modeling.md's convention: charges positive, refunds and
+          credits negative, prorations either sign, so sum(amount_usd) is
+          net revenue with no CASE logic needed at query time. Passed
+          through from silver unchanged; verified the sign convention
+          already holds exactly in the source data before building this
+          model.
+        tests:
+          - not_null
+
+      - name: tax_amount_usd
+        description: >
+          Additive measure, tax collected on this transaction in US
+          dollars, same sign convention as amount_usd. Nullable per
+          modeling.md's contract, though the real data as loaded has zero
+          nulls on this column across all 1,500,100 rows (not enforced
+          with a not_null test here since the contract documents it as
+          nullable).
+
+      - name: loaded_at
+        description: Wall-clock time this gold table was built. Audit only, never used in any join or hash, and by design differs between successive builds even when every other column is byte-identical.
+        tests:
+          - not_null
+
+    tests:
+      # dbt_utils.equal_rowcount was tried first (it is the more obvious
+      # choice for "row count unchanged by the join," modeling.md's
+      # "Point-in-time join rule" section) and rejected: its generated SQL
+      # does `group by id_dbtutils_test_equal_rowcount`, grouping by a
+      # SELECT-list alias assigned to a constant literal (`1 as
+      # id_dbtutils_test_equal_rowcount`). Confirmed directly against this
+      # project's real Trino instance that this specific shape fails with
+      # COLUMN_NOT_FOUND ("group by id_x" errors, "group by 1" on the same
+      # query does not), a genuine Trino query-planner limitation, not a
+      # bug in this model. dbt_expectations.expect_table_row_count_to_equal_other_table
+      # with no group_by compiles to a plain `a cross join b` with no GROUP
+      # BY at all (see dbt_packages/dbt_expectations/macros/schema_tests/
+      # _generalized/equal_expression.sql), which sidesteps the issue
+      # entirely and asserts the identical thing: this model's row count
+      # equals silver_billing_ledger's row count, i.e. the point-in-time
+      # and FK joins above dropped or duplicated no rows.
+      - dbt_expectations.expect_table_row_count_to_equal_other_table:
+          compare_model: ref('silver_billing_ledger')
+      - dbt_utils.expression_is_true:
+          expression: "(transaction_type != 'charge' or amount_usd > 0) and (transaction_type not in ('refund', 'credit') or amount_usd <= 0)"
