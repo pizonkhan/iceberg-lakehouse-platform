@@ -1,0 +1,211 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: >
+      Gold calendar dimension (.notes/modeling.md). Grain: one row per
+      calendar day, 2023-01-01 through 2027-12-31 (~1,826 rows, no unknown
+      member: unlike every hash-keyed dimension in this project, dim_date
+      has no source feed to fail resolving against, so there is nothing
+      for an unknown row to stand in for). Built entirely from
+      dbt_utils.date_spine, a generated calendar with no silver
+      dependency, not a static seed, so the range can be verified and
+      widened against real event data without hand-editing a file.
+
+      Physical range was checked, not assumed: real min/max event
+      timestamps were queried directly in Trino across
+      silver_playback_sessions, silver_billing_ledger,
+      silver_subscriber_events, silver_watchlist_adds, and every milestone
+      timestamp on silver_signup_funnel before this model was built. All
+      of them fall between 2023-01-01 and 2026-08-04, comfortably inside
+      the 2023-01-01 through 2027-12-31 range modeling.md specifies, so no
+      widening was needed. See .notes/decisions.md for the exact
+      per-column min/max values.
+
+      date_key is the one surrogate key in this project that is not an
+      md5 hash: modeling.md declares it the single exception to the
+      hash-key rule, an INTEGER in YYYYMMDD form, because a human-readable,
+      order-preserving date key is worth more than hash uniformity here
+      and the domain (a calendar day) can never collide.
+
+      Fiscal calendar: the fiscal year starts July 1. fiscal_month 1 = July,
+      12 = June, so a calendar date's fiscal_month is its calendar month
+      shifted back by 6 and wrapped. fiscal_year is labeled by the ending
+      calendar year, not the starting one: FY2026 runs 2025-07-01 through
+      2026-06-30, so a date in July through December of 2025 and a date in
+      January through June of 2026 are both fiscal_year 2026. This is the
+      standard convention for a July-start fiscal year (matches, for
+      example, the US federal government's own fiscal year) and is easy to
+      get backwards, hence spelling it out here for whoever queries this
+      next.
+
+      Holiday flags cover the 11 US federal holidays (5 U.S.C. 6103) on
+      their actual calendar date. Fixed-date holidays (New Year's Day,
+      Juneteenth, Independence Day, Veterans Day, Christmas) are flagged on
+      the literal date even when it falls on a weekend; this dimension does
+      not apply the federal-employee "observed" shift (Friday before a
+      Saturday holiday, Monday after a Sunday holiday), since that shift is
+      a payroll convention for federal employees, not a property of the
+      calendar date itself, and this is a general-purpose business
+      calendar, not a federal payroll calendar. Floating holidays (MLK Day,
+      Washington's Birthday, Memorial Day, Labor Day, Columbus Day,
+      Thanksgiving) are computed by day-of-week and nth-occurrence-in-month
+      arithmetic, not hardcoded dates.
+
+      Role-playing views: dim_signup_date, dim_churn_date, and
+      dim_billing_date are thin views over this table (see their own model
+      files and yml), each aliasing date_key to <role>_date_key and
+      date_day to <role>_date and passing every other column through
+      unchanged. They exist so one physical calendar table can serve as
+      the FK target for several distinct date roles on the fact and
+      dimension tables in the bus matrix (a subscriber's signup date, a
+      subscriber's churn date, a billing transaction's posted date)
+      without duplicating ~1,826 rows of calendar logic three times or
+      risking the three drifting out of sync. Each role view is a real
+      SQL VIEW, materialized='view' overriding marts/dimensions' table
+      default in dbt_project.yml, not a materialized copy: it always
+      reflects dim_date's current rows with zero extra storage and no
+      refresh step of its own, at the cost of re-executing a trivial
+      passthrough select on every query, which is immaterial at this row
+      count.
+    tests:
+      - dbt_utils.expression_is_true:
+          expression: "is_holiday = (holiday_name is not null)"
+    columns:
+      - name: date_key
+        description: >
+          Surrogate key, INTEGER in YYYYMMDD form (e.g. 20260119 for
+          2026-01-19). The one declared exception to this project's
+          md5-hash surrogate key rule, per modeling.md: human-readable and
+          order-preserving, and the calendar domain can never collide.
+        tests:
+          - not_null
+          - unique
+      - name: date_day
+        description: Natural key, the calendar date itself.
+        tests:
+          - not_null
+          - unique
+      - name: day_of_week
+        description: >
+          ISO-8601 day of week: 1 = Monday through 7 = Sunday. Not the
+          0=Sunday convention some other systems use, worth double
+          checking against when comparing to a different calendar source.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 7
+              inclusive: true
+      - name: day_name
+        description: "Full English weekday name, e.g. 'Monday'."
+        tests:
+          - not_null
+      - name: day_of_month
+        description: Day number within the month, 1 through 31.
+        tests:
+          - not_null
+      - name: day_of_year
+        description: Day number within the calendar year, 1 through 365 (366 in a leap year).
+        tests:
+          - not_null
+      - name: iso_week_of_year
+        description: >
+          ISO-8601 week number within the year, 1 through 52 or 53. ISO
+          weeks start Monday and the first week of a year is the one
+          containing that year's first Thursday, so late-December and
+          early-January dates can belong to a week numbered in the
+          adjacent calendar year.
+        tests:
+          - not_null
+      - name: month_of_year
+        description: Calendar month number, 1 (January) through 12 (December).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 12
+              inclusive: true
+      - name: month_name
+        description: "Full English month name, e.g. 'January'."
+        tests:
+          - not_null
+      - name: quarter_of_year
+        description: Calendar quarter, 1 through 4 (Q1 = Jan-Mar).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 4
+              inclusive: true
+      - name: year_number
+        description: Four-digit calendar year.
+        tests:
+          - not_null
+      - name: fiscal_month
+        description: >
+          Month position within the fiscal year, 1 = July through
+          12 = June (the fiscal year starts July 1). A calendar date's
+          fiscal_month is its calendar month shifted back 6 and wrapped:
+          month_of_year 7 (July) is fiscal_month 1, month_of_year 6 (June)
+          is fiscal_month 12, month_of_year 1 (January) is fiscal_month 7.
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 12
+              inclusive: true
+      - name: fiscal_quarter
+        description: >
+          Fiscal quarter, 1 through 4, three fiscal months each
+          (fiscal_month 1-3 = FQ1 = Jul-Sep, ..., fiscal_month 10-12 = FQ4
+          = Apr-Jun).
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 4
+              inclusive: true
+      - name: fiscal_year
+        description: >
+          Fiscal year, labeled by the calendar year it ends in, not the
+          one it starts in. FY2026 runs 2025-07-01 through 2026-06-30, so
+          both a 2025-07-01 date and a 2026-06-30 date carry fiscal_year
+          2026. Easy to get backwards: a date in the second half of a
+          given calendar year belongs to the fiscal year one number
+          higher than that calendar year.
+        tests:
+          - not_null
+      - name: is_weekend
+        description: True for Saturday and Sunday (day_of_week 6 or 7).
+        tests:
+          - not_null
+      - name: is_holiday
+        description: >
+          True on a US federal holiday (5 U.S.C. 6103), flagged on its
+          actual calendar date rather than the federal "observed" shift
+          for weekend-falling fixed dates. Exactly one of is_holiday /
+          holiday_name is set; enforced by a model-level test.
+        tests:
+          - not_null
+      - name: holiday_name
+        description: >
+          Name of the US federal holiday this date is, or null on a
+          non-holiday date. Exactly one of {New Year's Day, Martin Luther
+          King Jr. Day, Washington's Birthday, Memorial Day, Juneteenth
+          National Independence Day, Independence Day, Labor Day, Columbus
+          Day, Veterans Day, Thanksgiving Day, Christmas Day} on a holiday
+          row, otherwise null. Null exactly when is_holiday is false;
+          enforced by a model-level test.
+      - name: is_month_start
+        description: True on the first calendar day of the month.
+        tests:
+          - not_null
+      - name: is_month_end
+        description: True on the last calendar day of the month.
+        tests:
+          - not_null
+      - name: loaded_at
+        description: Wall-clock time this row was written by the gold build. Audit only, never used in any join or hash.
+        tests:
+          - not_null

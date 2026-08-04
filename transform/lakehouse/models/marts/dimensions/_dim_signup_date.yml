@@ -1,0 +1,69 @@
+version: 2
+
+models:
+  - name: dim_signup_date
+    description: >
+      Role-playing date dimension, the "signup" role. A thin view over
+      dim_date (.notes/modeling.md), FK target for
+      fct_signup_funnel.signup_date_key, the date a signup attempt began.
+      materialized='view' (dim_date itself is a table), so this always
+      reflects dim_date's current rows with no separate storage or refresh
+      step: a genuine role-playing view, not a copy of dim_date's rows.
+      Every column is a direct passthrough from dim_date except date_key
+      and date_day, renamed to signup_date_key and signup_date so a query
+      joining several date roles at once (e.g. signup date and billing
+      date on the same row) never has an ambiguous column name.
+    columns:
+      - name: signup_date_key
+        description: Surrogate key, dim_date.date_key renamed for this role. INTEGER, YYYYMMDD.
+        tests:
+          - not_null
+          - unique
+      - name: signup_date
+        description: Natural key, dim_date.date_day renamed for this role.
+        tests:
+          - not_null
+          - unique
+      - name: day_of_week
+        description: Passthrough of dim_date.day_of_week, ISO 1 = Monday through 7 = Sunday.
+      - name: day_name
+        description: Passthrough of dim_date.day_name, the full English weekday name.
+      - name: day_of_month
+        description: Passthrough of dim_date.day_of_month.
+      - name: day_of_year
+        description: Passthrough of dim_date.day_of_year.
+      - name: iso_week_of_year
+        description: Passthrough of dim_date.iso_week_of_year, ISO-8601 week number.
+      - name: month_of_year
+        description: Passthrough of dim_date.month_of_year.
+      - name: month_name
+        description: Passthrough of dim_date.month_name, the full English month name.
+      - name: quarter_of_year
+        description: Passthrough of dim_date.quarter_of_year.
+      - name: year_number
+        description: Passthrough of dim_date.year_number.
+      - name: fiscal_month
+        description: >
+          Passthrough of dim_date.fiscal_month. Fiscal year starts July 1,
+          so fiscal_month 1 = July, 12 = June; see dim_date's own
+          description for the full mechanic.
+      - name: fiscal_quarter
+        description: Passthrough of dim_date.fiscal_quarter, three fiscal months per quarter.
+      - name: fiscal_year
+        description: >
+          Passthrough of dim_date.fiscal_year, labeled by the ending
+          calendar year (FY2026 = 2025-07-01 through 2026-06-30).
+      - name: is_weekend
+        description: Passthrough of dim_date.is_weekend.
+      - name: is_holiday
+        description: Passthrough of dim_date.is_holiday, true on a US federal holiday.
+      - name: holiday_name
+        description: Passthrough of dim_date.holiday_name, null on a non-holiday date.
+      - name: is_month_start
+        description: Passthrough of dim_date.is_month_start.
+      - name: is_month_end
+        description: Passthrough of dim_date.is_month_end.
+      - name: loaded_at
+        description: Passthrough of dim_date.loaded_at, the wall-clock time the underlying dim_date row was built.
+        tests:
+          - not_null
