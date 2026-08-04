@@ -6,12 +6,48 @@ models:
       Gold transaction fact. Grain: one row per completed playback session.
       playback_session_id is the degenerate dimension, the unique grain
       key; there is no separate surrogate key on this fact (see
-      .notes/modeling.md, "fct_playback_events"). Built full-refresh from
+      .notes/modeling.md, "fct_playback_events"). Sourced from
       silver_playback_sessions (the quality-gated clean model, ~119.6M
       rows), one to one: every clean silver row produces exactly one fact
-      row, none dropped and none duplicated (verified: built table row
-      count 119,640,099 exactly equals silver_playback_sessions' row
-      count).
+      row, none dropped and none duplicated (verified on the original
+      full-refresh build: table row count 119,640,099 exactly equals
+      silver_playback_sessions' row count; reconfirmed identical after
+      converting to incremental, see below).
+
+
+      Incremental via Iceberg MERGE (materialized='incremental',
+      incremental_strategy='merge', unique_key='playback_session_id',
+      on_schema_change='fail'), converted from the original full-refresh
+      table. Full mechanism and reasoning are in the model SQL's own
+      header comment (fct_playback_events.sql); summary here for anyone
+      reading only this file: the incremental filter watermarks on
+      bronze's _ingested_at (passed through silver_playback_sessions
+      unchanged), not on session_started_at, because this table's source
+      data deliberately injects out-of-order arrival (old event time,
+      later arrival) and an event-time watermark would silently and
+      permanently drop such rows once the watermark advances past their
+      event time, while an ingestion-time watermark cannot make that
+      mistake. The watermark value itself is read from this table's own
+      Iceberg snapshot history (`"fct_playback_events$snapshots"`), not
+      from a stored _ingested_at column on the fact, since modeling.md's
+      column contract for this table does not include one and this work
+      package does not change that contract. To backfill a specific
+      _ingested_at range through the same MERGE without dropping the
+      table: `dbt build --select fct_playback_events --target trino
+      --vars '{backfill_start: "2026-08-04 00:00:00.000000",
+      backfill_end: "2026-08-05 00:00:00.000000"}'`; never with
+      --full-refresh, which defeats the point. Verified: full-refresh
+      baseline 119,640,099 rows in 242.68s; three consecutive no-op
+      incremental runs identical in row count and an order-independent
+      sample content checksum (~11-20s each); a zero-match backfill window
+      runs cleanly via MERGE with the table intact throughout. A
+      full-table-width backfill window (this project's entire bronze
+      history to date shares one _ingested_at, so any non-empty backfill
+      window currently matches 100% of rows) hit this dev Trino instance's
+      1.5GB-per-node memory cap on the MERGE's hash-join build side even
+      though the equivalent full-refresh CTAS succeeds at the same row
+      count; see the model SQL's "Scale note on backfill windows" and
+      .notes/decisions.md for the full finding.
 
 
       Point-in-time dimension resolution: subscriber_sk and title_sk each
