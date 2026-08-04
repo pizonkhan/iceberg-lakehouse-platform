@@ -8,7 +8,7 @@ pathology numbers, and why they are set where they are.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
@@ -24,8 +24,30 @@ SEED: int = 20260804
 GENERATION_NOW: datetime = datetime(2026, 8, 4, 0, 0, 0)
 
 # Lower bound for all generated event timestamps, matching dim_date's floor
-# in .notes/modeling.md.
+# in .notes/modeling.md. This is also the earliest instant any playback or
+# watchlist session timestamp can take (generation/playback.py's batch 0
+# and generation/watchlist.py both sample starting exactly at this value),
+# which is why the title catalog seed window below is anchored to end
+# before it rather than sharing it as a start point.
 PLATFORM_LAUNCH: datetime = datetime(2023, 1, 1, 0, 0, 0)
+
+# How long before PLATFORM_LAUNCH the title catalog was seeded, and how much
+# clearance to leave between the end of that seeding window and
+# PLATFORM_LAUNCH itself. Modeling.md's dim_title design assumes "titles
+# arrive from a controlled catalog feed ahead of playback"; generation/
+# titles.py used to draw catalog_add_at from the same [PLATFORM_LAUNCH, now)
+# span playback and watchlist draw their own session timestamps from, with
+# no correlation between the two, so a title could easily get its first
+# playback session before its own catalog_add event (see .notes/failures.md
+# for the full incident writeup). Every title's catalog_add_at is instead
+# drawn from [PLATFORM_LAUNCH - CATALOG_SEED_LEAD_TIME - CATALOG_SEED_BUFFER,
+# PLATFORM_LAUNCH - CATALOG_SEED_BUFFER], strictly before PLATFORM_LAUNCH,
+# so it precedes every possible playback or watchlist timestamp by
+# construction rather than by chance. The buffer exists so the window's
+# latest edge is not flush against PLATFORM_LAUNCH, keeping "before" true
+# with margin rather than by a knife-edge float comparison.
+CATALOG_SEED_LEAD_TIME: timedelta = timedelta(days=180)
+CATALOG_SEED_BUFFER: timedelta = timedelta(days=1)
 
 # Upper bound dim_date can represent. Malformed "future timestamp" rows are
 # kept under this so they are still a resolvable (if nonsensical) date, not
@@ -189,6 +211,8 @@ class RunConfig(BaseModel):
     now: datetime = GENERATION_NOW
     platform_launch: datetime = PLATFORM_LAUNCH
     date_dim_upper_bound: datetime = DATE_DIM_UPPER_BOUND
+    catalog_seed_lead_time: timedelta = CATALOG_SEED_LEAD_TIME
+    catalog_seed_buffer: timedelta = CATALOG_SEED_BUFFER
     output_root: Path = OUTPUT_ROOT
     scale: ScaleConfig
     pathology: PathologyConfig

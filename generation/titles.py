@@ -70,15 +70,26 @@ def generate_titles(run: RunConfig) -> tuple[TitleGenerationResult, list[dict[st
     rng = child_rng(run.seed, "titles.core")
 
     title_ids = build_id_pool("tt_", n, 5)
-    total_span_s = (run.now - run.platform_launch).total_seconds()
+
+    # Catalog seeding happens strictly before PLATFORM_LAUNCH, not spread
+    # across the same [platform_launch, now) span playback.py and
+    # watchlist.py draw their own session timestamps from. Those two both
+    # sample starting exactly at platform_launch (see config.py's
+    # CATALOG_SEED_LEAD_TIME comment), so anchoring every title's first
+    # catalog_add_at to a window that ends before platform_launch
+    # guarantees it precedes any playback or watchlist event for that
+    # title by construction, not by chance. See .notes/failures.md.
+    catalog_window_end = run.platform_launch - run.catalog_seed_buffer
+    catalog_window_start = catalog_window_end - run.catalog_seed_lead_time
+    catalog_span_s = (catalog_window_end - catalog_window_start).total_seconds()
 
     events: list[dict[str, object]] = []
 
     for i in range(n):
         title_id = title_ids[i]
         u = rng.random()
-        catalog_add_at = run.platform_launch + timedelta(seconds=total_span_s * u)
-        catalog_add_at = min(catalog_add_at, run.now - timedelta(days=1))
+        catalog_add_at = catalog_window_start + timedelta(seconds=catalog_span_s * u)
+        catalog_add_at = min(catalog_add_at, catalog_window_end)
 
         content_type = str(rng.choice(CONTENT_TYPES, p=CONTENT_TYPE_WEIGHTS))
         title_name = (
