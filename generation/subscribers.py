@@ -28,7 +28,7 @@ from generation.ids import build_id_pool
 from generation.reference import TIERS
 from generation.rng import child_rng
 from generation.timeutil import to_epoch_s
-from generation.types import MidstreamCandidate, SubscriberGenerationResult
+from generation.schemas import MidstreamCandidate, SubscriberGenerationResult
 
 STATUS_DOMAIN = ["trial", "active", "paused", "cancelled", "deleted", "past_due"]
 # raw source status values that signal a soft delete once emitted; broader

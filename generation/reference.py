@@ -14,7 +14,7 @@ import numpy as np
 import pyarrow as pa
 
 from generation.ids import build_id_pool
-from generation.types import ReferenceData
+from generation.schemas import ReferenceData
 
 TIERS = ["basic", "standard", "premium", "premium_plus"]
 BILLING_PERIODS = ["monthly", "annual"]

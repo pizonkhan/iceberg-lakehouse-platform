@@ -19,7 +19,7 @@ import pyarrow as pa
 from generation.config import RunConfig
 from generation.ids import WeightedPool, sequential_ids
 from generation.rng import child_rng
-from generation.types import (
+from generation.schemas import (
     SubscriberGenerationResult,
     TitleGenerationResult,
     WatchlistGenerationSummary,

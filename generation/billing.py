@@ -20,7 +20,7 @@ from generation.config import RunConfig
 from generation.ids import WeightedPool, sequential_ids
 from generation.rng import child_rng
 from generation.timeutil import from_epoch_s, to_epoch_s
-from generation.types import BillingGenerationSummary, SubscriberGenerationResult
+from generation.schemas import BillingGenerationSummary, SubscriberGenerationResult
 from generation.writer import write_batch
 
 PAYMENT_TYPES = np.array(["card", "paypal", "gift_card", "carrier_billing"])

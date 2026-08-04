@@ -19,7 +19,7 @@ import pyarrow as pa
 from generation.config import RunConfig
 from generation.ids import build_id_pool
 from generation.rng import child_rng
-from generation.types import TitleGenerationResult
+from generation.schemas import TitleGenerationResult
 
 CONTENT_TYPES = ["movie", "series"]
 CONTENT_TYPE_WEIGHTS = [0.62, 0.38]

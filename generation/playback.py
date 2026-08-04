@@ -36,7 +36,7 @@ from generation.config import RunConfig
 from generation.ids import WeightedPool, sequential_ids
 from generation.rng import child_rng
 from generation.timeutil import from_epoch_s, to_epoch_s
-from generation.types import (
+from generation.schemas import (
     PlaybackGenerationSummary,
     SubscriberGenerationResult,
     TitleGenerationResult,

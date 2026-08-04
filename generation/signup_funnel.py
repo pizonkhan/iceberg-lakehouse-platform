@@ -24,7 +24,7 @@ import pyarrow as pa
 from generation.config import RunConfig
 from generation.ids import sequential_ids
 from generation.rng import child_rng
-from generation.types import SignupFunnelGenerationSummary, SubscriberGenerationResult
+from generation.schemas import SignupFunnelGenerationSummary, SubscriberGenerationResult
 from generation.writer import write_batch
 
 REGISTERED_RATE = 0.90
