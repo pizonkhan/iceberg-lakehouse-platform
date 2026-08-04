@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: dim_plan
+    description: >
+      Gold Type 3 plan dimension (.notes/modeling.md). Grain: one row per
+      plan, permanently. Price and tier changes are meant to overwrite in
+      place with exactly one prior value retained, no row history. 20 to 40
+      rows, plus one unknown member row (plan_sk = md5('-1'), plan_id =
+      '-1'). Surrogate key is md5(plan_id) alone, no effective_from
+      component, because this dimension carries no version history.
+
+      Built as a full-refresh table, not incremental: silver_plans is
+      static current-state reference data with no price or tier history
+      reaching silver (per the source generator, see
+      models/intermediate/schema.yml on silver_plans). With no prior gold
+      state to diff a full-refresh run against, previous_tier,
+      previous_price_usd, tier_change_date, and price_change_date are
+      structurally NULL on every real row in this build, not derived. This
+      is the honest state of "no change has been observed by this pipeline
+      yet," not a bug. See .notes/decisions.md (2026-08-04) for the full
+      reasoning. These four columns only start populating once dim_plan is
+      converted to an incremental model that diffs an incoming silver row
+      against this same model's own previously materialized row for that
+      plan_id, which is a later work package, not this one.
+
+      Point-in-time caveat carried over from modeling.md: even once
+      incremental, dim_plan can answer "price at event time" only one
+      change back. Historical billing amounts live on
+      fct_billing_transactions as posted, which is the authoritative
+      record; the Type 3 columns exist for before/after comparison
+      queries, not for revenue reconstruction.
+    columns:
+      - name: plan_sk
+        description: surrogate key, lowercase md5 hex of plan_id alone (no effective_from, this dimension has no version history). md5('-1') on the unknown member row.
+        tests:
+          - not_null
+          - unique
+      - name: plan_id
+        description: natural key of the plan, carried verbatim from silver. '-1' on the unknown member row.
+        tests:
+          - not_null
+          - unique
+      - name: plan_name
+        description: display name of the plan. 'Unknown' on the unknown member row.
+        tests:
+          - not_null
+      - name: current_tier
+        description: plan tier as currently priced, mirrors silver_plans.current_tier. 'Unknown' on the unknown member row.
+        tests:
+          - not_null
+      - name: previous_tier
+        description: >
+          prior tier value from the one step of history before the most
+          recent tier change, Type 3. Structurally NULL under this
+          model's current full-refresh materialization: silver_plans
+          carries no tier history and this build has no prior gold state
+          to compare against, so no change has ever been observed by this
+          pipeline. Will populate once dim_plan becomes incremental and a
+          genuine tier change is detected against this model's own prior
+          run. Always NULL on the unknown member row.
+      - name: tier_change_date
+        description: >
+          calendar date of the most recent tier change, Type 3.
+          Structurally NULL for the same reason as previous_tier: no
+          change has been observed by this full-refresh build. Always
+          NULL on the unknown member row.
+      - name: current_price_usd
+        description: current monthly-equivalent list price of the plan in US dollars, mirrors silver_plans.current_price_usd. 0.00 on the unknown member row.
+        tests:
+          - not_null
+      - name: previous_price_usd
+        description: >
+          prior price value from the one step of history before the most
+          recent price change, Type 3. Structurally NULL under this
+          model's current full-refresh materialization, same reasoning as
+          previous_tier: silver_plans carries no price history and this
+          build has no prior gold state to diff against. Will populate
+          once dim_plan becomes incremental and a genuine price change is
+          detected against this model's own prior run. Always NULL on the
+          unknown member row.
+      - name: price_change_date
+        description: >
+          calendar date of the most recent price change, Type 3.
+          Structurally NULL for the same reason as previous_price_usd: no
+          change has been observed by this full-refresh build. Always
+          NULL on the unknown member row.
+      - name: billing_period
+        description: "how the plan is billed. observed values: monthly, annual. 'Unknown' on the unknown member row."
+        tests:
+          - not_null
+      - name: max_concurrent_streams
+        description: number of simultaneous streams the plan allows. 0 on the unknown member row.
+        tests:
+          - not_null
+      - name: video_quality
+        description: "maximum video quality the plan supports. observed values: sd, hd, uhd. 'Unknown' on the unknown member row."
+        tests:
+          - not_null
+      - name: has_ads
+        description: whether the plan includes an ad-supported tier. false on the unknown member row.
+        tests:
+          - not_null
+      - name: supports_downloads
+        description: whether the plan allows offline downloads. false on the unknown member row.
+        tests:
+          - not_null
+      - name: loaded_at
+        description: wall-clock time this gold table was built. Audit only, never used in any join or hash, and by design differs between successive builds even when every other column is byte-identical.
+        tests:
+          - not_null
