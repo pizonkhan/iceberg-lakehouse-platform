@@ -1,0 +1,31 @@
+name: "lakehouse"
+version: "1.0.0"
+config-version: 2
+
+profile: "lakehouse"
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# folder-level materialization defaults, mirroring the medallion layers:
+# staging is a thin view over source-conformed data, intermediate is
+# reusable business-logic building blocks, marts are the queryable
+# dimensional model. Individual models can still override these.
+models:
+  lakehouse:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+      dimensions:
+        +schema: dimensions
+      facts:
+        +schema: facts

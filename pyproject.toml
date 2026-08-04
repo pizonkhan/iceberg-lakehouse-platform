@@ -1,0 +1,60 @@
+[project]
+name = "iceberg-lakehouse-platform"
+version = "0.1.0"
+description = "Local Iceberg lakehouse: Nessie catalog, Trino query engine, dbt transforms."
+requires-python = ">=3.12"
+dependencies = [
+    "dbt-core==1.10.22",
+    "dbt-trino==1.10.3",
+    "dbt-duckdb==1.10.1",
+    "duckdb==1.4.4",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.16.1",
+    "mypy==1.19.1",
+    "pytest==9.1.1",
+]
+
+[tool.uv]
+# no installable Python package lives at the repo root yet (ingestion and
+# orchestration code land in later work packages), so this is a dependency
+# environment, not a built distribution.
+package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "N",   # pep8-naming
+    "C4",  # flake8-comprehensions
+    "PIE", # flake8-pie
+    "RUF", # ruff-specific rules
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+exclude = [
+    "transform/lakehouse/target/",
+    "transform/lakehouse/dbt_packages/",
+    "\\.venv/",
+]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+addopts = "-ra"

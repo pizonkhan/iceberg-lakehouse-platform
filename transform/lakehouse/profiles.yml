@@ -1,0 +1,43 @@
+# profiles.yml template for the "lakehouse" dbt project.
+#
+# No credentials live in this file, everything is read from environment
+# variables at run time. Point dbt at it with:
+#   dbt run --profiles-dir transform/lakehouse
+# or export DBT_PROFILES_DIR=transform/lakehouse.
+#
+# duckdb target: fast local/CI dev target. Runs against a local DuckDB file
+# and reads/writes Iceberg tables directly via the duckdb iceberg extension,
+# talking to the same MinIO bucket the docker stack uses so results are
+# comparable to the trino target without needing the full stack up.
+#
+# trino target: the real local stack (infra/docker-compose.yml). Catalog
+# name "iceberg" matches infra/trino/etc/catalog/iceberg.properties.
+
+lakehouse:
+  target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', 'dev.duckdb') }}"
+      threads: 4
+      extensions:
+        - httpfs
+        - iceberg
+      secrets:
+        - type: s3
+          region: "{{ env_var('MINIO_REGION', 'us-east-1') }}"
+          key_id: "{{ env_var('MINIO_ROOT_USER', '') }}"
+          secret: "{{ env_var('MINIO_ROOT_PASSWORD', '') }}"
+          endpoint: "{{ env_var('MINIO_ENDPOINT', 'localhost:9000') }}"
+          url_style: path
+          use_ssl: false
+
+    trino:
+      type: trino
+      method: none
+      user: "{{ env_var('DBT_TRINO_USER', 'dbt') }}"
+      host: "{{ env_var('DBT_TRINO_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_TRINO_PORT', '8080') | int }}"
+      database: iceberg
+      schema: "{{ env_var('DBT_TRINO_SCHEMA', 'dev') }}"
+      threads: 4
