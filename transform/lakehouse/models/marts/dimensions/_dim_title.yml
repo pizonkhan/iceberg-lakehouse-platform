@@ -1,0 +1,128 @@
+version: 2
+
+models:
+  - name: dim_title
+    description: >
+      Gold Type 2 dimension over title metadata. One row per title per
+      metadata version: a version begins whenever title_name,
+      content_type, release_year, runtime_minutes, maturity_rating,
+      original_language, or is_original changes. ~5k titles, ~15k history
+      rows, plus exactly one unknown member row (title_id = '-1') that
+      every unresolved fact FK falls back to. Full-refresh table, built
+      directly from silver_title_events with no incremental state: at
+      this row count a full rebuild is cheap and there is no late-arriving
+      handling to preserve across runs, since titles arrive from a
+      controlled catalog feed ahead of playback (see modeling.md, no
+      is_inferred column here unlike dim_subscriber). Interval semantics
+      are half-open [effective_from, effective_to); effective_to on the
+      current row is the literal high date 9999-12-31 23:59:59.999999,
+      never null.
+    tests:
+      - dbt_utils.mutually_exclusive_ranges:
+          lower_bound_column: effective_from
+          upper_bound_column: effective_to
+          partition_by: title_id
+          gaps: not_allowed
+          zero_length_range_allowed: false
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - title_id
+            - effective_from
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - title_id
+          config:
+            where: "is_current"
+      - dbt_expectations.expect_column_distinct_count_to_equal_other_table:
+          column_name: title_id
+          compare_model: ref('dim_title')
+          compare_column_name: title_id
+          compare_row_condition: "is_current"
+    columns:
+      - name: title_sk
+        description: >
+          Surrogate key, md5(title_id, effective_from). One key per
+          version, not per title: facts pin one version by joining on
+          this column. Deterministic and stable across full rebuilds, so
+          it never severs an already-written fact FK. The unknown member
+          row uses md5('-1') instead, per the standard unknown-row rule.
+        tests:
+          - not_null
+          - unique
+      - name: title_id
+        description: >
+          Natural (business) key of the title, carried verbatim from
+          silver. Repeats once per version in the history rows. '-1' on
+          the single unknown member row.
+        tests:
+          - not_null
+      - name: title_name
+        description: Title display name as of this version. Type 2 tracked, included in row_hash.
+        tests:
+          - not_null
+      - name: content_type
+        description: >
+          Whether the title is a movie or a series, as of this version.
+          Domain: movie, series. Type 2 tracked, included in row_hash.
+          The unknown member row holds the literal 'Unknown' instead of a
+          real domain value.
+        tests:
+          - not_null
+      - name: release_year
+        description: Calendar year the title was released, as of this version. Type 2 tracked, included in row_hash.
+      - name: runtime_minutes
+        description: >
+          Runtime in minutes for a movie, as of this version. Always null
+          for series, and null on the unknown member row. Type 2 tracked,
+          included in row_hash.
+      - name: maturity_rating
+        description: Content maturity rating as of this version. Type 2 tracked, included in row_hash.
+      - name: original_language
+        description: Original spoken language of the title, as of this version. Type 2 tracked, included in row_hash.
+      - name: is_original
+        description: >
+          Whether the title is a platform original, as of this version.
+          Type 2 tracked, included in row_hash. False on the unknown
+          member row.
+        tests:
+          - not_null
+      - name: effective_from
+        description: >
+          Timestamp this version became active, at microsecond precision.
+          Inclusive lower bound of the half-open validity interval. On a
+          title's first version this is the catalog_add event time; on
+          later versions it is the changed_at of the metadata_update
+          event that opened the version. 1900-01-01 00:00:00.000000 on
+          the unknown member row.
+        tests:
+          - not_null
+      - name: effective_to
+        description: >
+          Exclusive upper bound of the half-open validity interval. Equal
+          to the next version's effective_from, or the literal high date
+          9999-12-31 23:59:59.999999 on the current version. Never null.
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "> effective_from"
+      - name: is_current
+        description: True exactly when effective_to equals the high date. Exactly one true row per title_id.
+        tests:
+          - not_null
+      - name: scd_version
+        description: 1-based version number per title_id in effective_from order. 1 on the unknown member row.
+        tests:
+          - not_null
+      - name: row_hash
+        description: >
+          md5 hash of the seven tracked columns in table order
+          (title_name, content_type, release_year, runtime_minutes,
+          maturity_rating, original_language, is_original). Drives change
+          detection: a source event whose row_hash matches the currently
+          open version's row_hash produces no new version.
+        tests:
+          - not_null
+      - name: loaded_at
+        description: Wall-clock time this row was written by the gold build. Audit only, never used in a join or a hash.
+        tests:
+          - not_null
