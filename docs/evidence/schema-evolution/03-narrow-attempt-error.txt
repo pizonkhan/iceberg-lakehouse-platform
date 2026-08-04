@@ -1,0 +1,2 @@
+Query 20260804_233637_00201_ddgj6 failed: Failed to set column type: Cannot change column type: amount: long -> int
+

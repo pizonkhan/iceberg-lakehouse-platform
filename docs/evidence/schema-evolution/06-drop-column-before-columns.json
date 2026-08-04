@@ -1,0 +1,7 @@
+{"Column":"event_id","Type":"varchar","Extra":"","Comment":""}
+{"Column":"subscriber_id","Type":"varchar","Extra":"","Comment":""}
+{"Column":"priority","Type":"integer","Extra":"","Comment":""}
+{"Column":"amount","Type":"bigint","Extra":"","Comment":""}
+{"Column":"event_at","Type":"timestamp(6)","Extra":"","Comment":""}
+{"Column":"txn_status","Type":"varchar","Extra":"","Comment":""}
+{"Column":"discount_pct","Type":"integer","Extra":"","Comment":""}

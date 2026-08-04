@@ -1,0 +1,45 @@
+Scenario 2: rename a column, field ids preserve historical readability.
+
+Command run:
+  ALTER TABLE iceberg.schema_evolution_demo.demo_billing_events
+    RENAME COLUMN status TO txn_status;
+
+Evidence:
+  02-rename-column-before-metadata.json  raw metadata.json before (schema-id 1)
+  02-rename-column-after-metadata.json   raw metadata.json after (schema-id 2)
+  02-rename-column-before-query.json     SELECT event_id, status ... before rename
+  02-rename-column-after-query.json      SELECT event_id, txn_status ... after rename
+  02-rename-column-old-name-fails.txt    SELECT status ... after rename, real error
+
+What the evidence shows:
+
+Field id 5 is identical before and after:
+  before: {"id": 5, "name": "status", "required": false, "type": "string"}
+  after:  {"id": 5, "name": "txn_status", "required": false, "type": "string"}
+Only the name key changed. current-schema-id moved from 1 to 2 and a third
+schema entry was appended to the schemas array, metadata.json keeps every
+historical schema version, it does not overwrite schema 1.
+
+Querying by the new name returns the exact same values the old name
+returned for the same rows before the rename:
+  evt_000001: pending -> pending
+  evt_001100: completed -> completed
+No data file was touched, no data was moved. Querying by the old name after
+the rename correctly fails to resolve ('status' cannot be resolved), Trino
+has no fallback to stale names, the rename is a real rename, not an alias.
+
+Why a Hive-style table cannot do this: a Hive-style (schema-on-read, name
+and ordinal-position based) table has no independent field id layer. Column
+identity there is the column name (or its ordinal position for very old
+formats) baked directly into how each data file is decoded. Renaming a
+column in a Hive metastore either (a) is implemented as drop-and-recreate,
+losing the old data's association with the new name, or (b) requires
+rewriting every existing file to update its embedded/positional column
+name. Either way the historical data does not become readable under the
+new name without a rewrite. Iceberg avoids this because the name-to-id
+mapping lives only in metadata.json, not in the data files: every data file
+is read by matching field ids from its own file-level schema (recorded at
+write time) to the current table schema's field ids, and file to file
+column name never has to agree with the current table name for that
+column. Renaming is a pure metadata operation, hence no data-file rewrite
+happens on the RENAME COLUMN command above.

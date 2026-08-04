@@ -1,0 +1,12 @@
+"CREATE TABLE iceberg.schema_evolution_demo.demo_billing_events (
+   event_id varchar,
+   subscriber_id varchar,
+   amount integer,
+   event_at timestamp(6),
+   status varchar
+)
+WITH (
+   format = 'PARQUET',
+   format_version = 2,
+   location = 's3://warehouse/schema_evolution_demo/demo_billing_events_24684717-8629-4f02-aaa0-3e1cbdfcff8a'
+)"

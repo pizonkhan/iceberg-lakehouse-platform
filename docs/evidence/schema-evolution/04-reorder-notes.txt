@@ -1,0 +1,49 @@
+Scenario 4: reorder columns.
+
+First, what Trino's grammar actually allows was checked empirically before
+assuming anything (probed on a throwaway table, then confirmed again here):
+  ALTER TABLE demo_billing_events
+    ALTER COLUMN discount_pct SET DATA TYPE integer AFTER amount;
+  -> Query failed: line 1:111: mismatched input 'AFTER'. Expecting: '(',
+     'ARRAY', <EOF>
+See 04-reorder-existing-column-attempt.txt. Trino 483's ALTER TABLE grammar
+for the Iceberg connector does not expose a statement that repositions a
+column already in the table. ALTER COLUMN ... SET DATA TYPE only changes
+type, it does not accept FIRST/AFTER.
+
+The reordering DDL Trino does support for Iceberg is positional placement
+on ADD COLUMN:
+  ALTER TABLE demo_billing_events ADD COLUMN priority integer AFTER
+  subscriber_id;
+  -> ADD COLUMN
+See 04-reorder-add-column-after.txt. This is genuinely Iceberg-backed
+reordering, not cosmetic: Iceberg's schema is an explicitly ordered list of
+fields (independent of field id allocation order, and independent of
+physical column order in any individual Parquet file), and Trino's
+FIRST/AFTER clause writes that field into a specific position in that
+ordered list via the Iceberg schema update API, not just appends and lets
+a view reorder it.
+
+Evidence:
+  04-reorder-before-columns.json           SHOW COLUMNS before
+  04-reorder-existing-column-attempt.txt   real grammar rejection for
+                                            repositioning an existing column
+  04-reorder-add-column-after.txt          the ADD COLUMN ... AFTER command
+  04-reorder-after-columns.json            SHOW COLUMNS after, priority now
+                                            sits between subscriber_id and
+                                            amount
+  04-reorder-query-check.json              SELECT * still resolves every
+                                            column correctly in the new order
+  04-reorder-after-metadata.json           raw metadata.json schema section
+
+What the raw metadata.json shows: the new field was assigned field id 7
+(one past the previous highest, 6), but its position in the schemas[-1]
+.fields array is the third entry, between event_id/subscriber_id (ids 1, 2)
+and amount (id 3):
+  id 1 event_id, id 2 subscriber_id, id 7 priority, id 3 amount, id 4
+  event_at, id 5 txn_status, id 6 discount_pct
+Field id and field order are two independent axes: id is assignment order
+(monotonic, never reused), position is display/read order (fully
+controllable). SELECT * FROM demo_billing_events after the change returns
+columns in this new order and every existing value resolves correctly,
+confirmed above for evt_000001.

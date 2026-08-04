@@ -1,0 +1,3 @@
+{"event_id":"evt_000001","amount":17,"status":"pending","discount_pct":null}
+{"event_id":"evt_000500","amount":90,"status":"refunded","discount_pct":null}
+{"event_id":"evt_001000","amount":80,"status":"refunded","discount_pct":null}

@@ -1,0 +1,64 @@
+Scenario 7: a schema change Iceberg genuinely cannot absorb in place.
+
+Commands run:
+  ALTER TABLE demo_billing_events ALTER COLUMN event_id SET DATA TYPE integer;
+  ALTER TABLE demo_billing_events ALTER COLUMN subscriber_id SET DATA TYPE bigint;
+
+Evidence:
+  07-unsafe-type-change-error.txt   raw Trino output, both attempts
+
+Real errors returned (not assumed, not simulated):
+  Query ... failed: Failed to set column type: Cannot change column type:
+  event_id: string -> int
+
+  Query ... failed: Failed to set column type: Cannot change column type:
+  subscriber_id: string -> long
+
+Both varchar-to-numeric changes were rejected outright by the same
+connector-level check seen in scenario 3 (the narrowing attempt): Iceberg's
+schema evolution only allows a small, enumerated set of primitive type
+promotions (int -> long, float -> double, decimal precision widening,
+and a couple of others), and string -> int / string -> long is not on
+that list under any direction, there is no promotion path between a
+variable-length text type and a fixed-width numeric type, unlike int ->
+long which is a value-preserving reinterpretation. Trino's Iceberg
+connector refuses the ALTER before it reaches the catalog, table state is
+unchanged after both failed attempts.
+
+This is a genuine limitation, not a workaround-able restriction: it exists
+because Iceberg's in-place schema evolution guarantee only covers changes
+where every already-written value under the old type has an unambiguous,
+lossless reading under the new type. A string like "evt_000001" has no
+such reading as an int or bigint. Iceberg's design deliberately does not
+attempt a reinterpret-and-hope, it refuses instead.
+
+The real migration path for a change like this (expand-contract, not
+in-place):
+
+  1. Expand: add a new column with the new type,
+     ALTER TABLE demo_billing_events ADD COLUMN event_id_numeric bigint;
+     leaving the old event_id column and all existing readers untouched.
+  2. Backfill: populate the new column for existing rows from the old one
+     via an UPDATE or, more practically for Iceberg, a rewrite pass
+     (INSERT OVERWRITE / MERGE) that derives event_id_numeric from
+     event_id wherever a real numeric identifier is recoverable, or from a
+     new upstream source directly.
+  3. Dual-write: for any new data landing in the same table going forward,
+     populate both columns until every consumer has migrated, so neither
+     column ever silently falls behind.
+  4. Cut over consumers one at a time: update each downstream dbt model,
+     BI query, or job to read event_id_numeric instead of event_id,
+     verifying results at each cutover rather than moving every consumer
+     simultaneously.
+  5. Contract: once nothing reads the old column, drop it,
+     ALTER TABLE demo_billing_events DROP COLUMN event_id;
+     the same DROP COLUMN mechanism exercised in scenario 6, at that point
+     a safe operation because nothing depends on the old name or type
+     anymore.
+
+This is the standard expand-contract migration pattern applied to a
+warehouse table: the type change itself never happens in place, a
+parallel column absorbs the new type, and the cutover is a consumer-by-
+consumer migration with the old column staying live (and readable) for as
+long as any consumer still needs it, precisely because Iceberg's
+in-place evolution refuses to gamble on it.

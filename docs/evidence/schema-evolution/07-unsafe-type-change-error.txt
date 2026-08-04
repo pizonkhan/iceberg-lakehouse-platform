@@ -1,0 +1,4 @@
+Query 20260804_234200_00230_ddgj6 failed: Failed to set column type: Cannot change column type: event_id: string -> int
+
+Query 20260804_234201_00231_ddgj6 failed: Failed to set column type: Cannot change column type: subscriber_id: string -> long
+

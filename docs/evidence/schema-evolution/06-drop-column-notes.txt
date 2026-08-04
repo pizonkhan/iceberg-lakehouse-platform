@@ -1,0 +1,62 @@
+Scenario 6: drop a column, and the consumer impact.
+
+Command run:
+  ALTER TABLE demo_billing_events DROP COLUMN discount_pct;
+
+Evidence:
+  06-drop-column-before-columns.json    SHOW COLUMNS before, discount_pct present
+  06-drop-column-after-columns.json     SHOW COLUMNS after, discount_pct gone
+  06-drop-column-command.txt            raw DROP COLUMN result
+  06-drop-column-query-unaffected.json  a query that never referenced
+                                         discount_pct, unaffected
+  06-drop-column-query-fails.txt        a query that does reference it,
+                                         real error after the drop
+  06-drop-column-before-metadata.json   raw metadata.json before
+  06-drop-column-after-metadata.json    raw metadata.json after
+
+What the evidence shows:
+
+Field id 6 (discount_pct) is simply absent from the current schema's fields
+array after the drop, every other field id is untouched (event_id=1,
+subscriber_id=2, priority=7, amount=3, event_at=4, txn_status=5). Iceberg
+does not reuse dropped field ids, so a future ADD COLUMN of a
+similarly-named column would get a new id, never silently reattach to the
+old one's data.
+
+A query that does not reference discount_pct works exactly as before:
+  SELECT event_id, amount, txn_status FROM demo_billing_events WHERE
+  event_id = 'evt_000001' -> unchanged result.
+A query that does reference it now fails at parse time with a real,
+specific error:
+  Query ... failed: line 1:8: Column 'discount_pct' cannot be resolved
+This is a compile-time failure, not a runtime null or silent no-op.
+
+Consumer impact:
+
+Any downstream artifact that hardcodes the column name, a dbt model
+selecting discount_pct directly, a BI dashboard field bound to it, a
+notebook query, breaks the same way: name resolution fails at compile or
+parse time. It is not a silent data-quality problem (nulls sneaking in
+unnoticed), it is a hard break that surfaces immediately the next time that
+consumer runs. That is actually the safer failure mode compared to, say, a
+type change that a query still compiles against but produces wrong values
+for.
+
+How dbt's contract mechanism would catch this before production: dbt
+supports `contract: {enforced: true}` in a model's config, which pins the
+model's declared columns and types (as recorded in its schema yml) as a
+hard interface. When enforced, `dbt build` compares the model's actual
+compiled output columns against the declared contract at build time and
+fails the run if a column the contract promises is missing or the wrong
+type, catching a drop like this one in CI before the changed model is
+ever promoted, rather than downstream at query time in some other team's
+job days later. This project's own dbt models (see modeling.md and the
+column descriptions in models/marts/**/*.yml) already document a full
+column-level contract per fact and dimension in prose and tests
+(not_null, accepted_values, relationships), but do not yet set
+`contract: {enforced: true}` in any model config as of this evidence
+capture, that dbt-native enforcement, one line of config per model plus
+a matching schema yml, is the concrete mechanism that would upgrade this
+project's existing documented contracts into something that actively
+gates a breaking drop like this one at build time instead of relying on a
+human noticing.

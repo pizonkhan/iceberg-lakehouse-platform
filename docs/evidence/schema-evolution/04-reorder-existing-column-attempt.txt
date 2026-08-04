@@ -1,0 +1,4 @@
+Query 20260804_233712_00203_ddgj6 failed: line 1:111: mismatched input 'AFTER'. Expecting: '(', 'ARRAY', <EOF>
+LINE 1: ALTER TABLE iceberg.schema_evolution_demo.demo_billing_events ALTER COLUMN discount_pct SET DATA TYPE integer AFTER amount
+                                                                                                                      ^
+

@@ -1,0 +1,13 @@
+"CREATE TABLE iceberg.schema_evolution_demo.demo_billing_events_partitioned (
+   event_id varchar,
+   subscriber_id varchar,
+   amount integer,
+   event_at timestamp(6),
+   status varchar
+)
+WITH (
+   format = 'PARQUET',
+   format_version = 2,
+   location = 's3://warehouse/schema_evolution_demo/demo_billing_events_partitioned_4bba6c53-4fd1-4b71-9966-4412b310df40',
+   partitioning = ARRAY['day(event_at)']
+)"

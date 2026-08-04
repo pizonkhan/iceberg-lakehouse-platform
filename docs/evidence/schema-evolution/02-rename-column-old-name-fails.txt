@@ -1,0 +1,4 @@
+Query 20260804_233559_00196_ddgj6 failed: line 1:8: Column 'status' cannot be resolved
+LINE 1: SELECT status FROM iceberg.schema_evolution_demo.demo_billing_events LIMIT 1
+               ^
+

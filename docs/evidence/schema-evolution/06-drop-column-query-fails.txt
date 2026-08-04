@@ -1,0 +1,4 @@
+Query 20260804_234104_00229_ddgj6 failed: line 1:8: Column 'discount_pct' cannot be resolved
+LINE 1: SELECT discount_pct FROM iceberg.schema_evolution_demo.demo_billing_events LIMIT 1
+               ^
+

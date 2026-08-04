@@ -1,0 +1,41 @@
+Scenario 1: add a column mid-stream without rewriting data files.
+
+Commands run:
+  ALTER TABLE iceberg.schema_evolution_demo.demo_billing_events
+    ADD COLUMN discount_pct integer;
+
+  INSERT INTO demo_billing_events (event_id, subscriber_id, amount, event_at,
+    status, discount_pct)
+  SELECT ... 100 rows with discount_pct populated (event_id evt_001001
+  through evt_001100).
+
+Evidence:
+  01-add-column-before-files.json   $files before ADD COLUMN, 2 files
+  01-add-column-after-files.json    $files after ADD COLUMN + insert, 3 files
+  01-add-column-old-rows-null.json  old rows (evt_000001, evt_000500,
+                                     evt_001000) queried by new column name,
+                                     discount_pct reads back null
+  01-add-column-new-rows-populated.json  new rows show discount_pct populated
+  01-add-column-after-metadata.json raw metadata.json after the change
+
+What the evidence shows:
+
+The two original data files are byte-for-byte untouched: same file_path,
+same file_size_in_bytes, same record_count in both before and after $files
+snapshots:
+  .../20260804_233336_...-ad015423....parquet  record_count 500  size 2848
+  .../20260804_233343_...-3082a349....parquet  record_count 500  size 2852
+Neither file was rewritten, replaced, or renamed. A third file was appended
+for the new insert (record_count 100). Iceberg did not touch existing
+Parquet files to add a column; it only changed the table's schema
+definition in metadata.json and let old files continue to be read under
+the old schema, with the new field defaulting to null for any file that
+doesn't have it.
+
+The raw metadata.json schemas array now has two entries (schema-id 0 and
+schema-id 1), current-schema-id is 1, and last-column-id moved from 5 to 6.
+The new field discount_pct was assigned field id 6, one past the previous
+highest, not reused from any dropped or renamed field. This is the
+mechanism: readers resolve columns by field id against whichever schema
+version a data file was written under, and any field id absent from a
+file's schema is treated as null, no rewrite required.

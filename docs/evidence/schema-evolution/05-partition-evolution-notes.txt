@@ -1,0 +1,87 @@
+Scenario 5: partition evolution (headline scenario). Separate table used:
+iceberg.schema_evolution_demo.demo_billing_events_partitioned.
+
+Commands run, in order:
+  CREATE TABLE demo_billing_events_partitioned (event_id varchar,
+    subscriber_id varchar, amount integer, event_at timestamp(6),
+    status varchar)
+  WITH (format = 'PARQUET', format_version = 2,
+        partitioning = ARRAY['day(event_at)']);
+
+  INSERT ... 600 rows, event_at spanning 2026-01-01 through 2026-01-30
+    (spec 0, day(event_at))
+
+  ALTER TABLE demo_billing_events_partitioned
+    SET PROPERTIES partitioning = ARRAY['month(event_at)',
+                                         'bucket(subscriber_id, 4)'];
+    -- result: SET PROPERTIES
+
+  INSERT ... 400 rows, event_at spanning 2026-02-01 through 2026-03-02
+    (spec 1, month(event_at) + bucket(subscriber_id, 4))
+
+Evidence:
+  05-partitioned-show-create.txt          initial CREATE TABLE with spec 0
+  05-partition-spec0-partitions.json      $partitions after first insert,
+                                           30 daily partitions, 20 rows each
+  05-partitioned-spec0-metadata.json      raw metadata.json, one spec
+                                           (spec-id 0, day(event_at))
+  05-partition-evolve-command.txt         ALTER TABLE SET PROPERTIES result
+  05-partition-files-by-spec.json         file/record counts grouped by
+                                           spec_id: spec 0 = 30 files / 600
+                                           records, spec 1 = 8 files / 400
+                                           records
+  05-partition-files-detail.json          every file's path and spec_id
+  05-partitioned-final-metadata.json      raw metadata.json, both specs
+                                           present
+  05-partitioned-snapshots.json           $snapshots after both inserts
+  05-partition-cross-spec-query.json      aggregate query spanning both specs
+  05-partition-cross-spec-range-query.json  range query crossing the spec
+                                             boundary (Jan 25 to Feb 5)
+
+What the evidence shows:
+
+partition-specs in the raw metadata.json now has two entries, both kept
+permanently (Iceberg never deletes an old spec, only stops using it as
+default):
+  spec-id 0: [{"field-id": 1000, "name": "event_at_day", "source-id": 4,
+              "transform": "day"}]
+  spec-id 1: [{"field-id": 1001, "name": "event_at_month", "source-id": 4,
+              "transform": "month"},
+              {"field-id": 1002, "name": "subscriber_id_bucket",
+              "source-id": 2, "transform": "bucket[4]"}]
+default-spec-id moved from 0 to 1. Old data was never rewritten to match
+the new spec.
+
+$files, grouped by spec_id, shows the split cleanly:
+  spec_id 0: 30 files, 600 records (one file per day, Hive-style directory
+             layout event_at_day=2026-01-DD/)
+  spec_id 1: 8 files, 400 records (nested layout
+             event_at_month=2026-02|03/subscriber_id_bucket=0..3/)
+Every spec-0 file physically lives under an event_at_day=... prefix, every
+spec-1 file lives under event_at_month=.../subscriber_id_bucket=.../. The
+two layouts coexist side by side under the same table location. This is
+what makes it "evolution" rather than a rebuild: Iceberg does not require
+old files to be moved, renamed, or reorganized into the new spec's
+directory scheme.
+
+A query with no partition predicate returns the full combined 1000 rows
+(600 + 400) with correct aggregates (sum(amount) = 54440, event_at range
+2026-01-01 to 2026-03-02). A range query deliberately straddling the spec
+change boundary (Jan 25 through Feb 5, which includes 6 days written under
+spec 0 and 5 days written under spec 1) returns correct grouped counts by
+month (120 rows for January, 69 for February) pulled correctly from both
+physical layouts in one query, proving the planner reads across specs
+transparently.
+
+Observation on this environment's catalog: $snapshots and $history return
+only the single current live snapshot on both demo tables in this
+deployment (Nessie REST catalog), not the full append lineage; parent_id
+is reported null even where the summary's total-data-files/total-records
+prove a real prior snapshot existed and was extended. This was consistent
+across both demo_billing_events and demo_billing_events_partitioned, so it
+reflects how this catalog setup surfaces snapshot history through Trino's
+system tables in this environment, not something specific to the
+partitioning change. It did not affect file-level or spec-level evidence
+above, which comes from the current snapshot's live manifest list
+(unaffected by snapshot-log retention) and from partition-specs (which is
+never pruned).

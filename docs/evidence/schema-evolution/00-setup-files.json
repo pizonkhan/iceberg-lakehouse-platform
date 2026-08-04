@@ -1,0 +1,2 @@
+{"content":0,"file_path":"s3://warehouse/schema_evolution_demo/demo_billing_events_24684717-8629-4f02-aaa0-3e1cbdfcff8a/data/20260804_233343_00175_ddgj6-3082a349-22c2-4ef5-9286-252aac37285b.parquet","file_format":"PARQUET","spec_id":0,"record_count":500,"file_size_in_bytes":2852}
+{"content":0,"file_path":"s3://warehouse/schema_evolution_demo/demo_billing_events_24684717-8629-4f02-aaa0-3e1cbdfcff8a/data/20260804_233336_00174_ddgj6-ad015423-d3b5-4fa2-be5b-28536b89a0aa.parquet","file_format":"PARQUET","spec_id":0,"record_count":500,"file_size_in_bytes":2848}

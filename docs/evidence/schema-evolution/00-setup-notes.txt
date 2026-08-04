@@ -1,0 +1,41 @@
+Setup: demonstration schema and table for schema evolution evidence capture.
+
+Schema created:
+  CREATE SCHEMA IF NOT EXISTS iceberg.schema_evolution_demo
+
+Table created (Trino, Iceberg connector, Nessie REST catalog):
+  CREATE TABLE iceberg.schema_evolution_demo.demo_billing_events (
+     event_id varchar,
+     subscriber_id varchar,
+     amount integer,
+     event_at timestamp(6),
+     status varchar
+  )
+  WITH (
+     format = 'PARQUET',
+     format_version = 2
+  )
+
+Actual location assigned by the catalog:
+  s3://warehouse/schema_evolution_demo/demo_billing_events_24684717-8629-4f02-aaa0-3e1cbdfcff8a
+
+Seed data: two INSERT ... SELECT batches of 500 rows each (1000 rows total),
+built from UNNEST(sequence(...)) and deterministic expressions (no
+external source file). event_at spread across 60 distinct days starting
+2026-01-01 so later partitioning scenarios have more than one day to bucket.
+status cycles refunded/pending/completed. subscriber_id cycles 250 distinct
+values, amount derived from mod(n*7, 90) + 10.
+
+Row count after seed: 1000 (confirmed via SELECT count(*)).
+
+Result: two data files, 500 records each, both spec_id 0 (unpartitioned),
+two append snapshots plus the initial CREATE TABLE metadata.json (3 metadata
+JSON files total at this point). See 00-setup-files.json, 00-setup-
+snapshots.json, 00-setup-history.json, 00-setup-metadata.json (raw
+metadata.json pulled directly from MinIO, not Trino's system tables).
+
+This table is used for scenarios 1, 2, 3, 4, 6, 7. Scenario 5 (partition
+evolution) uses a separate table, demo_billing_events_partitioned, created
+fresh with an initial partition spec, since partition spec changes needed to
+be demonstrated from a clean spec history rather than layered onto a table
+that started unpartitioned.

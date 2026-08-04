@@ -1,0 +1,3 @@
+{"event_id":"evt_001001","amount":87,"status":"completed","discount_pct":1}
+{"event_id":"evt_001050","amount":70,"status":"completed","discount_pct":10}
+{"event_id":"evt_001100","amount":60,"status":"completed","discount_pct":0}

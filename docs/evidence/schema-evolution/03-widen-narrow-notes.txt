@@ -1,0 +1,42 @@
+Scenario 3: widen a type, then attempt to narrow it back.
+
+Commands run:
+  ALTER TABLE demo_billing_events ALTER COLUMN amount SET DATA TYPE bigint;
+    -- succeeds, result: SET COLUMN TYPE
+  ALTER TABLE demo_billing_events ALTER COLUMN amount SET DATA TYPE integer;
+    -- fails, real error below
+
+Evidence:
+  03-widen-narrow-before-columns.json  SHOW COLUMNS before, amount = integer
+  03-widen-after-columns.json          SHOW COLUMNS after widen, amount = bigint
+  03-widen-result.txt                  raw Trino output for the widen (succeeds)
+  03-narrow-attempt-error.txt          raw Trino output for the narrow attempt
+  03-widen-data-check.json             old row still reads back correctly post-widen
+  03-widen-after-metadata.json         raw metadata.json, field id 3 now type long
+
+What actually happened (real behavior, not assumed):
+
+The widen (int -> bigint) succeeded outright:
+  ALTER TABLE ... ALTER COLUMN amount SET DATA TYPE bigint
+  -> SET COLUMN TYPE
+metadata.json field id 3 changed from type "int" to type "long" in place,
+same field id, no data file rewrite, existing int32-encoded values in
+Parquet are upcast to long on read per Iceberg's schema evolution rules.
+evt_000001.amount still reads back 17 after the widen.
+
+The narrow attempt (bigint -> integer) was rejected outright by Trino with
+a real error, not a silent truncation and not a warning:
+
+  Query ... failed: Failed to set column type: Cannot change column type:
+  amount: long -> int
+
+This is Trino enforcing Iceberg's schema evolution rules at the connector
+level before any catalog commit is attempted: Iceberg's allowed primitive
+type promotions are one-directional and enumerated (int -> long, float ->
+double, decimal(P,S) -> decimal(P',S) with P' > P, and a few others). long
+-> int is not in that list because it is not a safe promotion (an existing
+long value can overflow a 32-bit int), so the connector refuses the DDL
+before it ever touches metadata.json. The table's schema after the failed
+attempt is unchanged, still bigint, confirmed by the fact the error was
+returned synchronously and no new schema-id or metadata.json version was
+produced for this statement.
