@@ -1,0 +1,114 @@
+version: 2
+
+models:
+  - name: bridge_title_genre
+    description: >
+      Bridge table (.notes/modeling.md) resolving the many-to-many
+      relationship between titles and genres. Grain: one row per
+      (title_id, genre_name) pair, allocation_weight summing to exactly
+      1.0000 per title_id. Built as a full-refresh table: silver_title_genres
+      is small (12,385 rows across 5,000 titles) and genre assignment is
+      not history-tracked, so there is nothing to incrementally merge
+      against.
+
+      A bridge table exists here because a title can carry more than one
+      genre (real data: 1 to 4 genre rows per title across all 5,000
+      titles) while dim_title's grain is one row per title per metadata
+      version. Genre cannot live as a plain attribute column on dim_title
+      without either violating that grain or arbitrarily keeping a single
+      genre and discarding the rest, so the many-to-many relationship is
+      resolved in its own table instead.
+
+      Keyed on title_id, dim_title's natural key, not title_sk, deliberately:
+      genre assignment is not itself history-tracked, so keying on the
+      natural key means a new dim_title SCD version never requires
+      re-emitting bridge rows. A fact reaches this bridge by joining to
+      dim_title on title_sk first, then dim_title.title_id to this bridge
+      on title_id. There is no dim_genre in the approved plan; genre_name
+      is the identifier. This model deliberately holds no ref() to
+      dim_title or any fact, so its build has no dependency on their state.
+
+      allocation_weight is passed through unchanged from
+      silver_title_genres, not derived: verified against the real data
+      (a grouped sum over the full table, not a sample) that the source
+      already totals exactly 1.0000 per title_id with zero exceptions
+      across all 5,000 titles.
+
+      The allocation_weight mechanism exists so a weighted fact query,
+      joining a fact to this bridge on title_id and multiplying its
+      measure by allocation_weight, does not double count: a title with
+      three genre rows would otherwise triple its contribution to any
+      measure summed by genre, since allocation_weight distributes exactly
+      1.0 of "this title" across its genre rows. An unweighted "any
+      exposure" query, for example counting fact rows or summing a measure
+      by genre through a plain join with no weighting or deduplication, is
+      a deliberate and known double-counting risk for any title with more
+      than one genre row: every second watched, dollar billed, or
+      watchlist add for that title is counted once per genre it belongs
+      to. That risk is inherent to a many-to-many bridge, not a defect in
+      this model. Analysts must either multiply by allocation_weight or
+      explicitly deduplicate before treating a join through this bridge as
+      row-count-safe.
+    columns:
+      - name: title_id
+        description: >
+          Natural key of dim_title, carried verbatim from
+          silver_title_genres. Half of the composite grain key with
+          genre_name. Not a foreign key to a specific dim_title surrogate
+          key: this bridge resolves against dim_title.title_id, joined
+          after a fact has already resolved its own title_sk, so a
+          version change on dim_title never forces a rebuild here.
+        tests:
+          - not_null
+
+      - name: genre_name
+        description: >
+          Genre identifier. Half of the composite grain key with title_id.
+          There is no dim_genre in the approved plan, so this string is
+          the genre's only identity; 18 distinct genre values observed in
+          the real data.
+        tests:
+          - not_null
+
+      - name: allocation_weight
+        description: >
+          Weight of this genre's contribution to the title, on a 0 to 1
+          scale, summing to exactly 1.0000 across all of a title's genre
+          rows. Passed through unchanged from silver_title_genres, which
+          already carries this column and already satisfies the exact sum
+          constraint in the real data. Multiply a fact's measure by this
+          weight to attribute it across genres without double counting.
+        tests:
+          - not_null
+
+      - name: is_primary_genre
+        description: >
+          True on exactly one row per title_id: the row with the maximum
+          allocation_weight, with the alphabetically first genre_name
+          breaking an exact tie. Real data contains genuine ties (for
+          example tt_03274, where documentary and fantasy both carry
+          0.3289), so the tie-break rule is exercised by real rows, not
+          only a hypothetical.
+        tests:
+          - not_null
+
+      - name: loaded_at
+        description: Wall-clock time this gold table was built. Audit only, never used in any join or hash, and by design differs between successive builds even when every other column is byte-identical.
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - title_id
+            - genre_name
+      - dbt_expectations.expression_is_true:
+          expression: "sum(allocation_weight)"
+          test_condition: "= 1.0000"
+          group_by_columns:
+            - title_id
+      - dbt_expectations.expression_is_true:
+          expression: "sum(case when is_primary_genre then 1 else 0 end)"
+          test_condition: "= 1"
+          group_by_columns:
+            - title_id
