@@ -1,0 +1,42 @@
+# agent / notes scratch — never shipped
+.claude/
+CLAUDE.md
+.notes/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.egg-info/
+
+# dbt
+target/
+dbt_packages/
+logs/
+
+# data / warehouse
+data/
+warehouse/
+*.duckdb
+*.duckdb.wal
+
+# dagster
+.dagster_home/
+storage/
+
+# terraform (unused for now, kept in case a cloud path is ever added)
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# os / editor
+.DS_Store
+*.swp
