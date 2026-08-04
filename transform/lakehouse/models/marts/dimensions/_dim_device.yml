@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: dim_device
+    description: >
+      Device dimension, Type 1. One row per device, current state only:
+      a correction to a device's attributes overwrites the existing row
+      in place, no history is kept. Full refresh on every build from
+      silver_devices, which is static reference data (roughly 3,000
+      devices as they currently exist). Carries exactly one unknown
+      member row (device_id '-1') so fact loads always have a valid,
+      joinable device_sk even when a playback session's device could not
+      be resolved.
+    columns:
+      - name: device_sk
+        description: surrogate key, md5(device_id), lowercase 32-character hex. Generated via dbt_utils.generate_surrogate_key(['device_id']), which reduces to md5(device_id) for this single-column key.
+        tests:
+          - unique
+          - not_null
+
+      - name: device_id
+        description: natural (business) key of the device, carried verbatim from silver_devices. '-1' identifies the unknown member row.
+        tests:
+          - unique
+          - not_null
+
+      - name: device_type
+        description: category of the device.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - tv
+                  - mobile
+                  - tablet
+                  - web
+                  - console
+                  - Unknown
+
+      - name: manufacturer
+        description: device manufacturer. 'Unknown' on the unknown member row; null is possible on a real device if the source cannot identify the manufacturer, though no null values are present in the current silver_devices data.
+
+      - name: model_name
+        description: device model name. 'Unknown' on the unknown member row; null is possible on a real device if the source cannot identify the model, though no null values are present in the current silver_devices data.
+
+      - name: os_name
+        description: operating system running on the device. 'Unknown' on the unknown member row; null is possible on a real device if the source cannot identify the OS, though no null values are present in the current silver_devices data.
+
+      - name: is_mobile
+        description: whether the device is a handheld form factor, true when device_type is 'mobile' or 'tablet'. Derived independently from device_type rather than passed through from silver_devices' own is_mobile column, so this dimension is self consistent with its own contract regardless of how silver computes its column. False on the unknown member row.
+        tests:
+          - not_null
+
+      - name: loaded_at
+        description: wall-clock time this row was written by the gold build. Never used in any join or hash; not expected to be identical across repeated builds of otherwise unchanged data.
+        tests:
+          - not_null
