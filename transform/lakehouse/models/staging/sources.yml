@@ -1,0 +1,304 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: >
+      Raw, append-only bronze layer. Source columns are carried verbatim
+      from the ingested parquet files plus four ingestion metadata columns
+      (_source_file, _ingested_at, _batch_id, _payload_hash) attached on
+      every table. Never modified after load; staging models are the only
+      place these sources are read from directly.
+    database: iceberg
+    schema: bronze
+    tables:
+      - name: bronze_subscriber_events
+        description: >
+          Subscriber profile change-event stream from the source system.
+          One row per change (signup or profile_update), not one row per
+          subscriber: a subscriber with five profile changes over their
+          lifetime has five rows here. This is the raw feed dim_subscriber's
+          Type 6 history is built from in gold; staging and silver must not
+          collapse it.
+        columns:
+          - name: subscriber_id
+            description: business key of the subscriber this change event belongs to.
+          - name: change_event_id
+            description: unique identifier of this individual change event, the grain key of the stream.
+          - name: change_timestamp
+            description: wall-clock instant the source system recorded this change.
+          - name: change_type
+            description: "kind of change this row represents. observed values: signup, profile_update."
+          - name: email
+            description: subscriber email address as of this change event.
+          - name: display_name
+            description: subscriber display name as of this change event.
+          - name: country_code
+            description: subscriber country as of this change event, ISO 3166-1 alpha-2.
+          - name: acquisition_channel
+            description: marketing channel the subscriber was acquired through, as of this change event.
+          - name: signup_date
+            description: the subscriber's original signup date, static across all of a subscriber's change events.
+          - name: plan_tier
+            description: subscription plan tier as of this change event.
+          - name: status
+            description: >
+              subscriber account status as of this change event, as recorded by the source system.
+              observed values include active, trial, paused, cancelled, deleted.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_title_events
+        description: >
+          Title metadata change-event stream from the source catalog feed.
+          One row per change (catalog_add or metadata_update), not one row
+          per title: this is the raw feed dim_title's Type 2 history is
+          built from in gold, staging and silver must not collapse it.
+        columns:
+          - name: title_id
+            description: business key of the title this change event belongs to.
+          - name: change_event_id
+            description: unique identifier of this individual change event, the grain key of the stream.
+          - name: change_timestamp
+            description: wall-clock instant the source catalog recorded this change.
+          - name: change_type
+            description: "kind of change this row represents. observed values: catalog_add, metadata_update."
+          - name: title_name
+            description: title display name as of this change event.
+          - name: content_type
+            description: "movie or series, as of this change event."
+          - name: release_year
+            description: calendar year the title was released, as of this change event.
+          - name: runtime_minutes
+            description: runtime in minutes for a movie, as of this change event. null for series.
+          - name: maturity_rating
+            description: content maturity rating as of this change event.
+          - name: original_language
+            description: original spoken language of the title, as of this change event.
+          - name: is_original
+            description: whether the title is a platform original, as of this change event.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_plans
+        description: static reference table of subscription plans. One row per plan, corrections overwrite in the source system rather than versioning.
+        columns:
+          - name: plan_id
+            description: business key of the plan, unique.
+          - name: plan_name
+            description: display name of the plan.
+          - name: current_tier
+            description: plan tier as currently priced. matches the plan_tier vocabulary used on subscriber events.
+          - name: current_price_usd
+            description: current monthly-equivalent list price of the plan, in US dollars.
+          - name: billing_period
+            description: "how the plan is billed. observed values: monthly, annual."
+          - name: max_concurrent_streams
+            description: number of simultaneous streams the plan allows.
+          - name: video_quality
+            description: "maximum video quality the plan supports. observed values: sd, hd, uhd."
+          - name: has_ads
+            description: whether the plan includes an ad-supported tier.
+          - name: supports_downloads
+            description: whether the plan allows offline downloads.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_devices
+        description: static reference table of devices seen streaming on the platform. One row per device, current state only.
+        columns:
+          - name: device_id
+            description: business key of the device, unique.
+          - name: device_type
+            description: "category of the device. observed values: tv, mobile, tablet, web, console."
+          - name: manufacturer
+            description: device manufacturer.
+          - name: model_name
+            description: device model name.
+          - name: os_name
+            description: operating system running on the device.
+          - name: is_mobile
+            description: whether the device is a handheld form factor (mobile or tablet).
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_title_genres
+        description: weighted title-to-genre associations from the source catalog. One row per (title, genre) pair.
+        columns:
+          - name: title_id
+            description: business key of the title, half of the composite grain key.
+          - name: genre_name
+            description: genre identifier, half of the composite grain key. there is no separate genre dimension table upstream.
+          - name: allocation_weight
+            description: fraction of the title attributed to this genre, sums to 1.0 across all genre rows for one title.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_playback_sessions
+        description: >
+          Completed playback session events, the highest-volume source
+          table (~120M rows). Carries known source-system data quality
+          problems that silver must gate: some rows have negative
+          watch_duration_seconds, a session_ended_at before
+          session_started_at, or a session_started_at after the row was
+          ingested (a future event). playback_quality is only populated
+          from a certain ingestion batch onward (earlier files did not
+          carry the column at all). A fraction of rows have a null
+          device_id where source-side device fingerprinting failed.
+        columns:
+          - name: playback_session_id
+            description: business key of the playback session, unique per session.
+          - name: subscriber_id
+            description: subscriber who watched, references bronze_subscriber_events.subscriber_id.
+          - name: title_id
+            description: title watched, references bronze_title_events.title_id.
+          - name: device_id
+            description: device the session streamed on, references bronze_devices.device_id. null when source-side device fingerprinting failed.
+          - name: session_started_at
+            description: wall-clock instant the playback session began.
+          - name: session_ended_at
+            description: wall-clock instant the playback session ended. expected to be at or after session_started_at on a well-formed row.
+          - name: watch_duration_seconds
+            description: seconds of content watched during the session. expected to be non-negative on a well-formed row.
+          - name: playback_percent
+            description: fraction of the title watched during this session, 0 to 1, as reported by the client player.
+          - name: buffering_count
+            description: number of rebuffer events during the session.
+          - name: avg_bitrate_kbps
+            description: average streaming bitrate for the session, in kilobits per second.
+          - name: playback_quality
+            description: >
+              streaming quality tier delivered for the session (sd, hd, fhd, uhd). null on rows ingested before the
+              source system started emitting this field; not an error, a genuine mid-stream schema addition.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze. used by silver as the reference instant for the future-timestamp quality check.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_billing_ledger
+        description: >
+          Billing ledger events (charges, refunds, credits, prorations).
+          Upstream retry duplication means some billing_transaction_id
+          values appear more than once with byte-identical payloads.
+        columns:
+          - name: billing_transaction_id
+            description: business key of the ledger entry. not unique in bronze, duplicated by upstream retries; silver deduplicates to one row per id.
+          - name: subscriber_id
+            description: subscriber the charge, refund, credit, or proration applies to.
+          - name: plan_id
+            description: plan associated with this transaction, references bronze_plans.plan_id.
+          - name: payment_type
+            description: "payment instrument used. observed values: card, paypal, gift_card, carrier_billing."
+          - name: is_promo_applied
+            description: whether a promotional discount applied to this transaction.
+          - name: is_retry
+            description: whether this transaction is a retry of a previously failed payment attempt.
+          - name: is_autopay
+            description: whether this transaction was collected via autopay rather than a manual payment.
+          - name: transaction_type
+            description: "kind of ledger entry. observed values: charge, refund, credit, proration."
+          - name: transaction_posted_at
+            description: wall-clock instant the transaction posted to the subscriber's account.
+          - name: amount_usd
+            description: transaction amount in US dollars, signed by transaction_type (charges positive, refunds and credits negative, prorations either sign).
+          - name: tax_amount_usd
+            description: tax portion of the transaction amount in US dollars, same sign convention as amount_usd.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze. used by silver as the dedup tie-break field.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to. used by silver as the dedup tie-break field.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_watchlist_adds
+        description: >
+          Events of a subscriber adding a title to their watchlist.
+          Removals are not modeled upstream, so a re-add after a removal
+          is a new event row with a new watchlist_event_id.
+        columns:
+          - name: watchlist_event_id
+            description: business key of the watchlist add event, unique per event.
+          - name: subscriber_id
+            description: subscriber who added the title.
+          - name: title_id
+            description: title that was added to the watchlist.
+          - name: added_at
+            description: wall-clock instant the title was added to the watchlist.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
+
+      - name: bronze_signup_funnel
+        description: >
+          One row per signup attempt, updated in place by the source
+          system as the attempt crosses registration, email verification,
+          payment-method-added, plan-selected, and first-stream milestones.
+          Upstream retry duplication means some signup_id values appear
+          more than once with byte-identical payloads.
+        columns:
+          - name: signup_id
+            description: business key of the signup attempt. not unique in bronze, duplicated by upstream retries; silver deduplicates to one row per id.
+          - name: subscriber_id
+            description: subscriber the attempt belongs to.
+          - name: attempt_started_at
+            description: wall-clock instant the signup attempt began.
+          - name: registered_at
+            description: wall-clock instant registration completed. null if the attempt has not reached this milestone.
+          - name: email_verified_at
+            description: wall-clock instant email verification completed. null if the attempt has not reached this milestone.
+          - name: payment_method_added_at
+            description: wall-clock instant a payment method was added. null if the attempt has not reached this milestone.
+          - name: plan_id_selected
+            description: plan chosen during the attempt, references bronze_plans.plan_id. null if the attempt has not reached this milestone.
+          - name: plan_selected_at
+            description: wall-clock instant a plan was selected. null if the attempt has not reached this milestone.
+          - name: first_stream_at
+            description: wall-clock instant of the first completed stream, which completes the funnel. null if the attempt has not reached this milestone.
+          - name: _source_file
+            description: bronze ingestion metadata, the source parquet file this row was read from.
+          - name: _ingested_at
+            description: bronze ingestion metadata, the wall-clock time this row was loaded into bronze. used by silver as the dedup tie-break field.
+          - name: _batch_id
+            description: bronze ingestion metadata, the load batch this row belongs to. used by silver as the dedup tie-break field.
+          - name: _payload_hash
+            description: bronze ingestion metadata, a hash of the row's source payload, used to detect exact-duplicate ingests.
