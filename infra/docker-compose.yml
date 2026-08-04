@@ -1,0 +1,119 @@
+name: iceberg-lakehouse
+
+services:
+  postgres:
+    image: postgres:16.14
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ROOT_USER $$MINIO_ROOT_PASSWORD &&
+      mc mb -p local/$$MINIO_BUCKET &&
+      mc anonymous set none local/$$MINIO_BUCKET &&
+      echo 'bucket ready'
+      "
+    restart: "no"
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie:0.108.4-java
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      nessie.version.store.type: JDBC
+      # named datasource, not the deprecated unnamed quarkus.datasource.* form
+      nessie.version.store.persist.jdbc.datasource: postgresql
+      quarkus.datasource.postgresql.db-kind: postgresql
+      quarkus.datasource.postgresql.jdbc.url: jdbc:postgresql://postgres:5432/nessie
+      quarkus.datasource.postgresql.username: ${POSTGRES_USER}
+      quarkus.datasource.postgresql.password: ${POSTGRES_PASSWORD}
+      nessie.catalog.default-warehouse: warehouse
+      nessie.catalog.warehouses.warehouse.location: s3://${MINIO_BUCKET}/
+      nessie.catalog.service.s3.default-options.endpoint: http://minio:9000
+      nessie.catalog.service.s3.default-options.path-style-access: "true"
+      nessie.catalog.service.s3.default-options.region: us-east-1
+      # access-key takes a urn pointing at a separately defined secret, not an
+      # inline value; nessie.catalog.secrets.* below is where the real values go
+      nessie.catalog.service.s3.default-options.access-key: urn:nessie-secret:quarkus:nessie.catalog.secrets.warehouse-creds
+      nessie.catalog.secrets.warehouse-creds.name: ${MINIO_ROOT_USER}
+      nessie.catalog.secrets.warehouse-creds.secret: ${MINIO_ROOT_PASSWORD}
+      nessie.server.authentication.enabled: "false"
+    ports:
+      - "127.0.0.1:${NESSIE_PORT:-19120}:19120"
+    healthcheck:
+      # nessie 0.108 splits health checks onto the quarkus management port (9000),
+      # not the main api port (19120), even though it isn't published to the host
+      test: ["CMD", "curl", "-f", "http://localhost:9000/q/health/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 1g
+
+  trino:
+    image: trinodb/trino:483
+    restart: unless-stopped
+    depends_on:
+      nessie:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./trino/etc:/etc/trino
+    ports:
+      - "127.0.0.1:${TRINO_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    mem_limit: 2560m
+
+volumes:
+  postgres-data:
+  minio-data:
