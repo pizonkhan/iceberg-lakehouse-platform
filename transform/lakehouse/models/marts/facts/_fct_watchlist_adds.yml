@@ -1,0 +1,164 @@
+version: 2
+
+models:
+  - name: fct_watchlist_adds
+    description: >
+      Gold factless fact. Grain: one row per event of one subscriber
+      adding one title to their watchlist. watchlist_event_id is the
+      degenerate dimension, the unique grain key; there is no separate
+      surrogate key on this fact (see .notes/modeling.md, "fct_watchlist_
+      adds (factless fact)"). Built full-refresh from silver_watchlist_
+      adds, one to one: every clean silver row produces exactly one fact
+      row, none dropped and none duplicated (verified: built table row
+      count 750,000 exactly equals silver_watchlist_adds' row count).
+
+
+      A factless fact carries no measure columns at all: nothing here is
+      summed or averaged, the existence of a row is itself the fact being
+      recorded ("this subscriber added this title to their watchlist at
+      this instant"). Analysis is done by counting rows (grouped by
+      subscriber, by title, by day, and so on), not by aggregating a
+      numeric column, which is the same shape as a coverage or event-log
+      fact in the classic Kimball sense (compare "students enrolled in
+      courses," another factless design with no natural measure).
+      Removals from a watchlist are not modeled anywhere upstream of this
+      table (no removal event exists in the source), so this table cannot
+      answer "what is currently on a subscriber's watchlist," only "what
+      add events have ever happened." A re-add after a removal is
+      therefore a legitimate, separate event row, not a duplicate to be
+      collapsed: the same (subscriber_id, title_id) pair can and does
+      repeat here with distinct added_at values, and watchlist_event_id,
+      not the pair, is what uniqueness is enforced on.
+
+
+      Point-in-time dimension resolution: subscriber_sk and title_sk each
+      resolve through the half-open interval join modeling.md's
+      "Point-in-time join rule" section specifies for this fact, equality
+      on the natural key plus added_at falling inside [effective_from,
+      effective_to) of exactly one version of that dimension, with the
+      lower bound widened by one second per that section's timestamp
+      precision mitigation paragraph. silver_watchlist_adds.added_at is
+      whole-second only (verified: 0 of 750,000 rows carry a sub-second
+      component) while both dimensions' effective_from carries true
+      microsecond precision, so an exact predicate can miss by up to 999ms
+      of truncation error. Verified directly against the real data before
+      relying on the widening: the exact (unwidened) predicate misses
+      subscriber_sk on 82 of 750,000 rows and title_sk on 0 of 750,000
+      rows; the widened predicate misses both on 0 of 750,000 rows, and
+      introduces no ambiguity (the smallest real gap between two
+      consecutive versions of the same natural key is 221,062ms for
+      dim_subscriber and 357,538,399ms for dim_title, both far past the
+      1-second widening, and a direct check confirmed at most one
+      candidate row per watchlist_event_id for both joins). A left join
+      is still used for both, and a miss is repaired with coalesce() to
+      the unknown member key (md5('-1'), via the same
+      dbt_utils.generate_surrogate_key(["'-1'"]) call every dimension's
+      own unknown row uses) rather than dropping the fact row, matching
+      every other fact in this project.
+
+
+      title_sk unknown-member rate, verified specifically because a prior
+      work package found and fixed a real generator defect (commit
+      b1b4401, see .notes/failures.md) where titles could be added to the
+      catalog after playback sessions already referenced them, driving
+      fct_playback_events' title_sk to the unknown member on 17.3% of
+      rows before the fix: this fact reads a different silver source
+      (silver_watchlist_adds, not silver_playback_sessions), so its
+      title_sk resolution was independently verified rather than assumed
+      fixed. Result: 0 of 750,000 rows resolve title_sk to the unknown
+      member, with and without the one-second widening. The bug did not
+      resurface here. subscriber_sk likewise resolves to the unknown
+      member on 0 of 750,000 rows on the built table (the 82-row exact-
+      predicate miss above is fully absorbed by the widening, and
+      dim_subscriber's own late-arriving self-heal means there is no
+      genuinely-unseen-subscriber case left to explain in this dataset
+      either).
+
+
+      added_date_key is computed directly from added_at with dim_date's
+      own date_key formula (cast(date_format(added_at, '%Y%m%d') as
+      integer)) rather than joined, matching the pattern established on
+      fct_playback_events.session_date_key and fct_signup_funnel's
+      milestone date keys; dim_date's grain (2023-01-01 through
+      2027-12-31) covers this fact's full added_at range, verified with a
+      relationships test below regardless.
+
+
+      Idempotency: two independent full-refresh `dbt build` runs against
+      unchanged upstream data produced an identical row count (750,000
+      both times) and an identical unknown-member count on both FK
+      columns (0 and 0 both times). loaded_at is the only column expected
+      to differ between the two runs, by design (audit-only, per
+      modeling.md's general loaded_at rule, never used in any join or
+      hash).
+    columns:
+      - name: watchlist_event_id
+        description: >
+          Degenerate dimension and grain key: one row per watchlist-add
+          event, carried verbatim from silver. Unique and not null across
+          all 750,000 rows.
+        tests:
+          - unique
+          - not_null
+
+      - name: subscriber_sk
+        description: >
+          FK to dim_subscriber, resolved to the version current at
+          added_at via the widened point-in-time interval join (see model
+          description). Never null: a miss falls back to the unknown
+          member (md5('-1')). Resolves to the unknown member on 0 of
+          750,000 rows on the real built table.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_subscriber')
+                field: subscriber_sk
+
+      - name: title_sk
+        description: >
+          FK to dim_title, resolved to the version current at added_at
+          via the widened point-in-time interval join (see model
+          description). Never null: a miss falls back to the unknown
+          member (md5('-1')). Resolves to the unknown member on 0 of
+          750,000 rows on the real built table, confirming the generator
+          defect that inflated fct_playback_events' equivalent rate to
+          17.3% before its fix (.notes/failures.md) does not reappear on
+          this fact's independent source file.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_title')
+                field: title_sk
+
+      - name: added_date_key
+        description: >
+          FK to dim_date (the base dimension, not a role-playing view),
+          computed directly from added_at with dim_date's own YYYYMMDD
+          date_key formula rather than joined, to avoid an extra broadcast
+          join; see model description for why this is safe.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+      - name: added_at
+        description: >
+          Event time the subscriber added the title to their watchlist, as
+          recorded by the source (whole-second precision on the real
+          data). Drives both point-in-time dimension resolutions on this
+          fact, the event-time column modeling.md's join rule names for
+          fct_watchlist_adds.
+        tests:
+          - not_null
+
+      - name: loaded_at
+        description: >
+          Wall-clock time this row was written by the gold build. Audit
+          only, never used in any join or hash; not expected to be
+          identical across repeated builds of otherwise unchanged data.
+        tests:
+          - not_null
