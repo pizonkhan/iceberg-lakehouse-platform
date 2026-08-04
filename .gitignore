@@ -29,6 +29,9 @@ warehouse/
 *.duckdb
 *.duckdb.wal
 
+# generated synthetic source data, rebuildable from generation/ + SEED
+generation/output/
+
 # dagster
 .dagster_home/
 storage/
