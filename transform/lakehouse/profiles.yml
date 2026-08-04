@@ -41,3 +41,26 @@ lakehouse:
       database: iceberg
       schema: "{{ env_var('DBT_TRINO_SCHEMA', 'dev') }}"
       threads: 4
+      # this single-node Trino caps query.max-memory-per-node at 1.5GB
+      # (infra/trino/etc/config.properties), on a 2GB JVM heap. Building
+      # silver_playback_sessions / silver_playback_sessions_rejected (a
+      # CTAS scanning all ~120M rows of bronze_playback_sessions) reliably
+      # exceeded that cap under Trino's defaults even with a
+      # pushdown-friendly WHERE clause (see
+      # macros/playback_malformed_predicate.sql): default scan and writer
+      # concurrency each buffer enough in flight to blow the limit on
+      # their own, and capping only one side still left the other over
+      # budget. These four settings bound scan-side split concurrency
+      # (initial_splits_per_node, task_concurrency) and writer-side
+      # concurrency (scale_writers, task_min/max_writer_count) together,
+      # confirmed by direct testing to bring the same query comfortably
+      # under 1.5GB. See decisions.md for the full trace of what was
+      # tried and ruled out. Cost is slower scans/writes at this table's
+      # scale; every other model in this project is small enough not to
+      # notice.
+      session_properties:
+        task_concurrency: 2
+        initial_splits_per_node: 2
+        scale_writers: false
+        task_min_writer_count: 1
+        task_max_writer_count: 1

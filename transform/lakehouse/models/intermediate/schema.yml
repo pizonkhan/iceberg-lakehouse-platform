@@ -1,0 +1,565 @@
+version: 2
+
+models:
+  - name: silver_subscriber_events
+    description: >
+      Silver subscriber profile change-event stream: bronze data,
+      deduplicated on change_event_id and typed. Still one row per change
+      event, the same grain as bronze, deliberately not collapsed to
+      one row per subscriber. Gold's dim_subscriber Type 6 build reads
+      this table to derive subscriber version history; a silver model
+      that pre-collapsed this to latest-state would make that build
+      impossible and is exactly the layer violation this project's
+      medallion boundary forbids.
+    columns:
+      - name: subscriber_id
+        description: business key of the subscriber this change event belongs to.
+        tests:
+          - not_null
+      - name: change_event_id
+        description: unique identifier of this individual change event, the grain key of the stream and the dedup key.
+        tests:
+          - not_null
+          - unique
+      - name: changed_at
+        description: wall-clock instant the source system recorded this change.
+        tests:
+          - not_null
+      - name: change_type
+        description: "kind of change this row represents. observed values: signup, profile_update."
+        tests:
+          - not_null
+      - name: email
+        description: subscriber email address as of this change event.
+      - name: display_name
+        description: subscriber display name as of this change event.
+      - name: country_code
+        description: subscriber country as of this change event, ISO 3166-1 alpha-2.
+      - name: acquisition_channel
+        description: marketing channel the subscriber was acquired through, as of this change event.
+      - name: signup_date
+        description: the subscriber's original signup date, static across all of a subscriber's change events.
+      - name: plan_tier
+        description: subscription plan tier as of this change event.
+      - name: status
+        description: >
+          subscriber account status as of this change event, carried
+          verbatim from the source. gold maps this vocabulary
+          (cancelled, deleted) onto dim_subscriber's status domain
+          (churned); silver does not perform that remapping.
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_title_events
+    description: >
+      Silver title metadata change-event stream: bronze data, deduplicated
+      on change_event_id and typed. Still one row per change event, the
+      same grain as bronze, deliberately not collapsed to one row per
+      title. Gold's dim_title Type 2 build reads this table to derive
+      title version history.
+    columns:
+      - name: title_id
+        description: business key of the title this change event belongs to.
+        tests:
+          - not_null
+      - name: change_event_id
+        description: unique identifier of this individual change event, the grain key of the stream and the dedup key.
+        tests:
+          - not_null
+          - unique
+      - name: changed_at
+        description: wall-clock instant the source catalog recorded this change.
+        tests:
+          - not_null
+      - name: change_type
+        description: "kind of change this row represents. observed values: catalog_add, metadata_update."
+        tests:
+          - not_null
+      - name: title_name
+        description: title display name as of this change event.
+      - name: content_type
+        description: movie or series, as of this change event.
+      - name: release_year
+        description: calendar year the title was released, as of this change event.
+      - name: runtime_minutes
+        description: runtime in minutes for a movie, as of this change event. null for series.
+      - name: maturity_rating
+        description: content maturity rating as of this change event.
+      - name: original_language
+        description: original spoken language of the title, as of this change event.
+      - name: is_original
+        description: whether the title is a platform original, as of this change event.
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_plans
+    description: Silver plan reference. One row per plan, no dedup pathology found on plan_id.
+    columns:
+      - name: plan_id
+        description: business key of the plan, unique.
+        tests:
+          - not_null
+          - unique
+      - name: plan_name
+        description: display name of the plan.
+        tests:
+          - not_null
+      - name: current_tier
+        description: plan tier as currently priced. matches the plan_tier vocabulary used on subscriber events.
+        tests:
+          - not_null
+      - name: current_price_usd
+        description: current monthly-equivalent list price of the plan, in US dollars.
+        tests:
+          - not_null
+      - name: billing_period
+        description: "how the plan is billed. observed values: monthly, annual."
+      - name: max_concurrent_streams
+        description: number of simultaneous streams the plan allows.
+      - name: video_quality
+        description: "maximum video quality the plan supports. observed values: sd, hd, uhd."
+      - name: has_ads
+        description: whether the plan includes an ad-supported tier.
+      - name: supports_downloads
+        description: whether the plan allows offline downloads.
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_devices
+    description: Silver device reference. One row per device, no dedup pathology found on device_id.
+    columns:
+      - name: device_id
+        description: business key of the device, unique.
+        tests:
+          - not_null
+          - unique
+      - name: device_type
+        description: "category of the device. observed values: tv, mobile, tablet, web, console."
+        tests:
+          - not_null
+      - name: manufacturer
+        description: device manufacturer.
+      - name: model_name
+        description: device model name.
+      - name: os_name
+        description: operating system running on the device.
+      - name: is_mobile
+        description: whether the device is a handheld form factor (mobile or tablet).
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_title_genres
+    description: >
+      Silver title-genre weighted association. One row per (title, genre)
+      pair, no dedup pathology found on the composite key. allocation_weight
+      summing to 1.0 per title and exactly-one-primary-genre selection are
+      gold-layer tests on bridge_title_genre, not repeated here.
+    columns:
+      - name: title_id
+        description: business key of the title, half of the composite grain key.
+        tests:
+          - not_null
+      - name: genre_name
+        description: genre identifier, half of the composite grain key.
+        tests:
+          - not_null
+      - name: allocation_weight
+        description: fraction of the title attributed to this genre.
+        tests:
+          - not_null
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - title_id
+              - genre_name
+
+  - name: silver_watchlist_adds
+    description: >
+      Silver watchlist add event stream. One row per event, no dedup
+      pathology found on watchlist_event_id. Repeated (subscriber_id,
+      title_id) pairs are expected: a re-add after a removal is a new
+      event with its own id, removals themselves are not modeled upstream.
+    columns:
+      - name: watchlist_event_id
+        description: business key of the watchlist add event, unique per event.
+        tests:
+          - not_null
+          - unique
+      - name: subscriber_id
+        description: subscriber who added the title.
+        tests:
+          - not_null
+      - name: title_id
+        description: title that was added to the watchlist.
+        tests:
+          - not_null
+      - name: added_at
+        description: wall-clock instant the title was added to the watchlist.
+        tests:
+          - not_null
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_billing_ledger
+    description: >
+      Silver billing ledger, deduplicated on billing_transaction_id.
+      Verified against real bronze data: 1,515,049 rows collapse to
+      1,500,100 distinct billing_transaction_id values (14,949 ids had
+      exactly one duplicate, every duplicate pair byte-identical on
+      _payload_hash, a retry replay). Tie-break: keep the row with the
+      latest _ingested_at, ties broken by lowest _batch_id.
+    columns:
+      - name: billing_transaction_id
+        description: business key of the ledger entry and the dedup key, unique after silver's dedup.
+        tests:
+          - not_null
+          - unique
+      - name: subscriber_id
+        description: subscriber the charge, refund, credit, or proration applies to.
+        tests:
+          - not_null
+      - name: plan_id
+        description: plan associated with this transaction.
+        tests:
+          - not_null
+      - name: payment_type
+        description: "payment instrument used. observed values: card, paypal, gift_card, carrier_billing."
+      - name: is_promo_applied
+        description: whether a promotional discount applied to this transaction.
+      - name: is_retry
+        description: whether this transaction is a retry of a previously failed payment attempt.
+      - name: is_autopay
+        description: whether this transaction was collected via autopay rather than a manual payment.
+      - name: transaction_type
+        description: "kind of ledger entry. observed values: charge, refund, credit, proration."
+        tests:
+          - not_null
+      - name: transaction_posted_at
+        description: wall-clock instant the transaction posted to the subscriber's account.
+        tests:
+          - not_null
+      - name: amount_usd
+        description: transaction amount in US dollars, signed by transaction_type (charges positive, refunds and credits negative, prorations either sign).
+        tests:
+          - not_null
+      - name: tax_amount_usd
+        description: tax portion of the transaction amount in US dollars, same sign convention as amount_usd.
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_signup_funnel
+    description: >
+      Silver signup funnel, deduplicated on signup_id. Verified against
+      real bronze data: 70,701 rows collapse to 70,000 distinct signup_id
+      values (701 ids had exactly one duplicate, every duplicate pair
+      byte-identical on _payload_hash, a retry replay). Tie-break: keep
+      the row with the latest _ingested_at, ties broken by lowest
+      _batch_id.
+    columns:
+      - name: signup_id
+        description: business key of the signup attempt and the dedup key, unique after silver's dedup.
+        tests:
+          - not_null
+          - unique
+      - name: subscriber_id
+        description: >
+          subscriber the attempt belongs to. null until the attempt
+          reaches the registered_at milestone: no subscriber entity
+          exists yet for an attempt that has not registered. verified
+          against real data: 7,094 of 70,000 deduplicated rows are
+          pre-registration and carry a null subscriber_id.
+      - name: attempt_started_at
+        description: wall-clock instant the signup attempt began.
+        tests:
+          - not_null
+      - name: registered_at
+        description: wall-clock instant registration completed. null if the attempt has not reached this milestone.
+      - name: email_verified_at
+        description: wall-clock instant email verification completed. null if the attempt has not reached this milestone.
+      - name: payment_method_added_at
+        description: wall-clock instant a payment method was added. null if the attempt has not reached this milestone.
+      - name: selected_plan_id
+        description: plan chosen during the attempt. null if the attempt has not reached this milestone.
+      - name: plan_selected_at
+        description: wall-clock instant a plan was selected. null if the attempt has not reached this milestone.
+      - name: first_stream_at
+        description: wall-clock instant of the first completed stream, which completes the funnel. null if the attempt has not reached this milestone.
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_playback_sessions
+    description: >
+      Silver playback session stream, quality-gated. Rows with negative
+      watch_duration_seconds, session_ended_at before session_started_at,
+      or a session_started_at after the row's own _ingested_at are routed
+      to silver_playback_sessions_rejected instead of appearing here. Null
+      device_id (failed source-side fingerprinting) is left null, not
+      filtered and not invented; gold resolves it to the unknown device
+      member at fact-load time. No uniqueness test runs against
+      playback_session_id at this table's ~120M-row scale, see
+      decisions.md for why (single-node Trino, 1.5GB per-query memory
+      cap makes an exact GROUP BY over ~120M distinct string keys
+      infeasible without a config change out of this work package's
+      scope). The WHERE filter is written as direct column comparisons
+      rather than a filter on a derived rejection_reason column so Trino
+      can push it down to the Iceberg scan, see
+      macros/playback_malformed_predicate.sql.
+    tests:
+      - dbt_expectations.expect_column_pair_values_A_to_be_greater_than_B:
+          arguments:
+            column_A: session_ended_at
+            column_B: session_started_at
+            or_equal: true
+      - dbt_expectations.expect_column_pair_values_A_to_be_greater_than_B:
+          arguments:
+            column_A: _ingested_at
+            column_B: session_started_at
+            or_equal: true
+    columns:
+      - name: playback_session_id
+        description: business key of the playback session.
+        tests:
+          - not_null
+      - name: subscriber_id
+        description: subscriber who watched.
+        tests:
+          - not_null
+      - name: title_id
+        description: title watched.
+        tests:
+          - not_null
+      - name: device_id
+        description: device the session streamed on. null when source-side device fingerprinting failed.
+      - name: session_started_at
+        description: wall-clock instant the playback session began.
+        tests:
+          - not_null
+      - name: session_ended_at
+        description: wall-clock instant the playback session ended. guaranteed at or after session_started_at by the quality gate (see the model-level pair test).
+        tests:
+          - not_null
+      - name: watch_duration_seconds
+        description: seconds of content watched during the session. guaranteed non-negative by the quality gate.
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+      - name: playback_percent
+        description: fraction of the title watched during this session, 0 to 1, as reported by the client player.
+      - name: buffering_count
+        description: number of rebuffer events during the session.
+      - name: avg_bitrate_kbps
+        description: average streaming bitrate for the session in kilobits per second.
+      - name: playback_quality
+        description: streaming quality tier delivered for the session. null on rows ingested before the source system started emitting this field.
+      - name: _source_file
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _ingested_at
+        description: >
+          bronze ingestion metadata, passthrough unchanged. also the
+          reference instant for the quality gate's future-timestamp
+          check: guaranteed at or after session_started_at on every row
+          in this clean model (see the model-level pair test).
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _payload_hash
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: int_playback_rejected_negative_duration
+    description: >
+      Internal helper feeding silver_playback_sessions_rejected, not a
+      deliverable in its own right: every playback row with a negative
+      watch_duration_seconds. Materialized on its own, rather than as one
+      branch of a UNION ALL inside silver_playback_sessions_rejected,
+      because combining all three malformation scans into a single query
+      reliably exceeded this single-node Trino's 1.5GB per-query memory
+      cap; even a single-predicate scan at the full 16-column row width
+      did, regardless of session concurrency settings or date-range
+      chunking (Iceberg file pruning on session_started_at is defeated by
+      this table's deliberately injected out-of-order pathology,
+      confirmed with EXPLAIN (TYPE IO)). Narrowing the column set below
+      was the one lever that produced a reliable fit. See decisions.md.
+    columns:
+      - name: playback_session_id
+        description: business key of the playback session.
+      - name: subscriber_id
+        description: subscriber who watched.
+      - name: title_id
+        description: title watched.
+      - name: session_started_at
+        description: wall-clock instant the playback session began, as recorded (may itself be the malformation).
+      - name: session_ended_at
+        description: wall-clock instant the playback session ended, as recorded.
+      - name: watch_duration_seconds
+        description: seconds of content watched during the session, as recorded (negative on every row of this table).
+      - name: rejection_reason
+        description: constant 'negative_duration' on every row of this table.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: int_playback_rejected_ended_before_started
+    description: >
+      Internal helper feeding silver_playback_sessions_rejected, not a
+      deliverable in its own right: every playback row (with a
+      non-negative duration) where session_ended_at is before
+      session_started_at. See int_playback_rejected_negative_duration for
+      why this is a separate model and why its columns are narrow.
+    columns:
+      - name: playback_session_id
+        description: business key of the playback session.
+      - name: subscriber_id
+        description: subscriber who watched.
+      - name: title_id
+        description: title watched.
+      - name: session_started_at
+        description: wall-clock instant the playback session began, as recorded.
+      - name: session_ended_at
+        description: wall-clock instant the playback session ended, as recorded (before session_started_at on every row of this table).
+      - name: watch_duration_seconds
+        description: seconds of content watched during the session, as recorded.
+      - name: rejection_reason
+        description: constant 'ended_before_started' on every row of this table.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: int_playback_rejected_future_timestamp
+    description: >
+      Internal helper feeding silver_playback_sessions_rejected, not a
+      deliverable in its own right: every well-formed-duration,
+      well-ordered playback row whose session_started_at is after the
+      row's own _ingested_at. See int_playback_rejected_negative_duration
+      for why this is a separate model and why its columns are narrow.
+    columns:
+      - name: playback_session_id
+        description: business key of the playback session.
+      - name: subscriber_id
+        description: subscriber who watched.
+      - name: title_id
+        description: title watched.
+      - name: session_started_at
+        description: wall-clock instant the playback session began, as recorded (after _ingested_at on every row of this table).
+      - name: session_ended_at
+        description: wall-clock instant the playback session ended, as recorded.
+      - name: watch_duration_seconds
+        description: seconds of content watched during the session, as recorded.
+      - name: rejection_reason
+        description: constant 'future_timestamp' on every row of this table.
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged. the reference instant this row's session_started_at falls after.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+
+  - name: silver_playback_sessions_rejected
+    description: >
+      Companion reject stream for silver_playback_sessions: every row the
+      quality gate excluded, kept rather than dropped so the exclusion is
+      observable. Built as a union of three upstream helper tables (one
+      per malformation type) rather than one scan with all three checks,
+      see int_playback_rejected_negative_duration for why. A
+      repository-level test (tests/playback_quality_gate_conserves_rows.sql)
+      asserts this model's row count plus silver_playback_sessions' row
+      count equals stg_playback_sessions' row count.
+      Carries a narrower column set than silver_playback_sessions
+      (business keys, the timestamps and duration the quality gate
+      evaluates, rejection_reason, and the two ingestion-metadata columns
+      the dedup and future-timestamp logic depend on), rather than full
+      parity with the clean model's columns: device_id, playback_percent,
+      buffering_count, avg_bitrate_kbps, playback_quality, _source_file,
+      and _payload_hash are omitted. This is enough to identify and
+      investigate every excluded row; see
+      int_playback_rejected_negative_duration for why the column width
+      had to be reduced at this table's scale.
+    columns:
+      - name: playback_session_id
+        description: business key of the playback session.
+        tests:
+          - not_null
+      - name: subscriber_id
+        description: subscriber who watched.
+      - name: title_id
+        description: title watched.
+      - name: session_started_at
+        description: wall-clock instant the playback session began (as recorded, may itself be the malformation).
+      - name: session_ended_at
+        description: wall-clock instant the playback session ended (as recorded, may be before session_started_at).
+      - name: watch_duration_seconds
+        description: seconds of content watched during the session (as recorded, may be negative).
+      - name: rejection_reason
+        description: which quality check this row failed.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - negative_duration
+                  - ended_before_started
+                  - future_timestamp
+      - name: _ingested_at
+        description: bronze ingestion metadata, passthrough unchanged. the reference instant the future-timestamp check compares session_started_at against.
+      - name: _batch_id
+        description: bronze ingestion metadata, passthrough unchanged.
+
+tests:
+  - name: playback_quality_gate_conserves_rows
+    description: >
+      Row-conservation check on the playback quality gate: staged row
+      count must equal silver_playback_sessions row count plus
+      silver_playback_sessions_rejected row count. Fails (returns rows)
+      if any row went missing or was double-counted between the clean
+      and rejects models.
