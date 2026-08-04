@@ -1,0 +1,122 @@
+version: 2
+
+models:
+  - name: dim_payment_method
+    description: >
+      Junk dimension (.notes/modeling.md) collecting the four low-cardinality
+      flag and code columns that describe how a billing transaction was
+      paid: payment_type, is_promo_applied, is_retry, is_autopay. A junk
+      dimension exists to keep a handful of unrelated, low-cardinality
+      attributes off the fact table: without it, fct_billing_transactions
+      would carry these four columns directly, bloating a ~1.5M-row fact
+      with repeated text and boolean values and making every filter or
+      group-by on payment behavior a scan of the fact itself. Instead the
+      small set of possible combinations is pre-enumerated once here, and
+      the fact stores a single payment_method_sk foreign key.
+
+      There is no natural key: the four-column combination is the identity,
+      the defining trait of a junk dimension (as opposed to a Type 1 or
+      Type 2 dimension, which track a real-world entity with its own
+      business key independent of its attributes). Grain is one row per
+      distinct combination of payment_type, is_promo_applied, is_retry,
+      and is_autopay.
+
+      Seeded as the full cross product of the domains currently observed in
+      silver_billing_ledger (distinct payment_type values crossed with both
+      boolean states of the three flags), not merely the combinations that
+      happen to already co-occur on an existing billing row. As of this
+      build every combination in the cross product is in fact observed
+      together in silver (4 payment types x 2 x 2 x 2 = 32 combinations,
+      confirmed against silver_billing_ledger), but the model is built to
+      enumerate the cross product regardless, so a combination that has
+      never co-occurred would still get a row and a resolvable key. A
+      future payment_type value appearing in silver widens the cross
+      product on the next full-refresh build; this table has no
+      incremental state to reconcile against.
+
+      32 real rows plus exactly one unknown member row, 33 total, well
+      under the 100-row ceiling modeling.md sets for this dimension. Full
+      refresh on every build: at this row count a full rebuild is cheap and
+      there is no history to preserve, since this dimension has no SCD
+      tracking (a junk dimension is not versioned, the mapping from
+      attribute combination to key is permanent by construction).
+    columns:
+      - name: payment_method_sk
+        description: >
+          Surrogate key, lowercase md5 hex of the four combination columns
+          (payment_type, is_promo_applied, is_retry, is_autopay, in that
+          order), generated via dbt_utils.generate_surrogate_key rather
+          than a hand-written hash formula (see .notes/modeling.md,
+          "Surrogate key strategy": the macro's real delimiter and NULL
+          placeholder do not match the formula the prose used to give, so
+          only the macro's actual output is ground truth). The macro casts
+          each boolean component to varchar before hashing, which in Trino
+          produces lowercase 'true' / 'false' text, satisfying the "cast to
+          'true'/'false' before hashing" rule without an extra explicit
+          case expression. On the unknown member row this is the hash of
+          the sentinel combination ('Unknown', false, false, false), not a
+          literal md5('-1'): this dimension has no natural key column for
+          the project's general md5('-1') unknown-member convention to
+          attach to, see the model's own inline comment and
+          .notes/open-questions.md.
+        tests:
+          - unique
+          - not_null
+
+      - name: payment_type
+        description: >
+          How the payment instrument was charged. Observed domain: card,
+          paypal, gift_card, carrier_billing. 'Unknown' identifies the
+          single unknown member row and is not a value silver ever
+          produces.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - card
+                  - paypal
+                  - gift_card
+                  - carrier_billing
+                  - Unknown
+
+      - name: is_promo_applied
+        description: >
+          Whether a promotional discount was applied to this billing
+          combination. False on the unknown member row.
+        tests:
+          - not_null
+
+      - name: is_retry
+        description: >
+          Whether this billing combination represents a retried charge
+          attempt (a prior attempt for the same transaction failed and was
+          reattempted), as opposed to a first attempt. False on the unknown
+          member row.
+        tests:
+          - not_null
+
+      - name: is_autopay
+        description: >
+          Whether the charge was collected automatically under a standing
+          autopay authorization, as opposed to a one-off or manually
+          initiated payment. False on the unknown member row.
+        tests:
+          - not_null
+
+      - name: loaded_at
+        description: >
+          Wall-clock time this row was written by the gold build. Audit
+          only, never used in any join or hash, and by design differs
+          between successive builds even when every other column is
+          byte-identical.
+        tests:
+          - not_null
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - payment_type
+            - is_promo_applied
+            - is_retry
+            - is_autopay
