@@ -1,0 +1,176 @@
+version: 2
+
+models:
+  - name: dim_subscriber
+    description: >
+      Gold Type 6 hybrid subscriber dimension (.notes/modeling.md). Grain:
+      one row per subscriber per tracked-attribute version, where a
+      version begins whenever plan_tier or status changes. ~50k
+      subscribers, ~200k history rows (199,928 change events collapse to
+      versions after runs of unchanged (plan_tier, status) are merged),
+      plus a small number of late-arriving inferred rows (0 in the
+      current dataset, see is_inferred), plus exactly one unknown member
+      row (subscriber_sk = md5('-1')).
+
+      Built as a full-refresh table, not incremental (that conversion is
+      a later work package): silver_subscriber_events is a change-event
+      stream, not a latest-state table, and at ~200k rows reprocessing it
+      whole every build is cheap. The model does its own Type 2/3/6
+      versioning from that stream: dedup any exact-timestamp ties,
+      compute a row_hash over (plan_tier, status), collapse consecutive
+      events with an unchanged hash into a single version, then layer the
+      Type 1 mirrors (email, display_name, country_code,
+      acquisition_channel, current_plan_tier), the Type 3
+      previous_plan_tier, and the churn_date_key mirror on top.
+
+      Status remapping: silver_subscriber_events carries status verbatim
+      from source (trial, active, paused, cancelled, deleted). Per
+      models/intermediate/schema.yml on that table, gold is responsible
+      for mapping cancelled and deleted onto this dimension's declared
+      status domain (trial, active, paused, churned, unknown); silver
+      deliberately does not perform that remapping. This model does it in
+      its first cte, before row_hash, versioning, or churn_date_key touch
+      status, so every downstream mechanic operates on the gold
+      vocabulary modeling.md declares.
+
+      Late-arriving subscriber handling: this model itself detects any
+      subscriber_id referenced by silver_playback_sessions,
+      silver_billing_ledger, or silver_watchlist_adds that does not
+      appear anywhere in silver_subscriber_events, and synthesizes an
+      inferred row for it (plan_tier/status/current_plan_tier =
+      'unknown', descriptive attributes NULL, effective_from =
+      1900-01-01), so the point-in-time interval join in every downstream
+      fact always resolves even though dimensions build before facts.
+      Because this is full-refresh rather than incremental, there is no
+      persisted prior state to backfill in place: a subscriber_id is only
+      ever inferred if it is completely absent from
+      silver_subscriber_events at build time, and the moment real profile
+      events exist for it, it is built entirely through the normal
+      versioned path with a real effective_from at scd_version 1. See
+      .notes/decisions.md for why this reaches the same end state as
+      modeling.md's incremental backfill description without a separate
+      backfill step.
+
+      churn_date_key is currently NULL on every row in the real dataset:
+      silver's status vocabulary maps cancelled/deleted onto 'churned' in
+      this model (see above), but the current 199,928-row dataset has
+      zero events of either type, so no subscriber's status ever becomes
+      'churned' here. The column, its remapping, and its mirror mechanic
+      are implemented and exercised by the churn-domain data test below;
+      they will populate the moment source data includes a cancellation
+      or deletion event.
+    columns:
+      - name: subscriber_sk
+        description: >
+          surrogate key, lowercase md5 hex of (subscriber_id,
+          effective_from) via dbt_utils.generate_surrogate_key. One key
+          per version. md5(subscriber_id, timestamp
+          '1900-01-01 00:00:00.000000') on inferred late-arriving rows
+          (the sentinel effective_from makes the key derivable by any
+          loader without coordination). md5('-1') on the unknown member
+          row (single-component key, no effective_from, per modeling.md's
+          general unknown-member rule).
+        tests:
+          - not_null
+          - unique
+      - name: subscriber_id
+        description: natural key, carried verbatim from silver. The observed id on inferred rows. '-1' on the unknown member row.
+        tests:
+          - not_null
+      - name: email
+        description: subscriber email address, Type 1, mirrored across every historical row of the subscriber from the chronologically latest change event. NULL on inferred rows (not yet known). 'Unknown' on the unknown member row.
+      - name: display_name
+        description: subscriber display name, Type 1, mirrored across every historical row from the latest change event. NULL on inferred rows. 'Unknown' on the unknown member row.
+      - name: country_code
+        description: subscriber country, ISO 3166-1 alpha-2, Type 1, mirrored across every historical row from the latest change event. NULL on inferred rows. 'Unknown' on the unknown member row.
+      - name: acquisition_channel
+        description: marketing channel the subscriber was acquired through, Type 1, mirrored across every historical row from the latest change event. NULL on inferred rows. 'Unknown' on the unknown member row.
+      - name: signup_date
+        description: >
+          the subscriber's original signup date, static, set once from
+          their change_type = 'signup' event and never revised. NULL on
+          inferred rows (a late-arriving subscriber's signup has not been
+          observed yet) and on the unknown member row.
+      - name: plan_tier
+        description: subscription plan tier as of this version, Type 2 tracked, part of row_hash. 'unknown' on inferred rows (lowercase, a real domain value meaning "not yet known"). 'Unknown' (title case, the dimensional sentinel) on the unknown member row.
+        tests:
+          - not_null
+      - name: status
+        description: >
+          subscriber account status as of this version, Type 2 tracked,
+          part of row_hash. Domain: trial, active, paused, churned,
+          unknown. Remapped from silver's source vocabulary (cancelled and
+          deleted both become churned; trial, active, paused pass
+          through unchanged), see the model description. 'unknown' on
+          inferred rows. 'Unknown' (title case) on the unknown member row.
+        tests:
+          - not_null
+      - name: current_plan_tier
+        description: Type 1 mirror of the subscriber's latest plan_tier, overwritten across every historical row. 'unknown' on inferred rows. 'Unknown' on the unknown member row.
+        tests:
+          - not_null
+      - name: previous_plan_tier
+        description: >
+          Type 3 column, the plan_tier value immediately before the most
+          recent genuine plan_tier change (not touched by a status-only
+          version). NULL until a subscriber's first plan change, NULL on
+          every inferred row (plan_tier has never actually changed for an
+          unobserved subscriber), NULL on the unknown member row.
+      - name: churn_date_key
+        description: >
+          FK to the dim_churn_date role-playing view, Type 1 mirror set
+          on all rows of a subscriber when status first becomes
+          'churned' in their current (most recent) status segment,
+          cleared back to NULL on reactivation. Currently NULL on every
+          row of the real dataset: see the model description for why (no
+          cancelled/deleted source events exist yet to remap into
+          'churned'). NULL on inferred and unknown member rows.
+      - name: effective_from
+        description: SCD tracking, inclusive start of this version's validity interval, at source microsecond precision. 1900-01-01 00:00:00.000000 on inferred and unknown member rows.
+        tests:
+          - not_null
+      - name: effective_to
+        description: SCD tracking, exclusive end of this version's validity interval (half-open [effective_from, effective_to)). The literal high date 9999-12-31 23:59:59.999999 on every current row, never NULL.
+        tests:
+          - not_null
+      - name: is_current
+        description: SCD tracking, true exactly when effective_to equals the high date.
+        tests:
+          - not_null
+      - name: scd_version
+        description: SCD tracking, 1-based version number per subscriber_id in effective_from order. Always 1 on inferred and unknown member rows.
+        tests:
+          - not_null
+      - name: row_hash
+        description: SCD change detection, md5 of (plan_tier, status) in that order via dbt_utils.generate_surrogate_key. A silver event whose (plan_tier, status) pair matches the current row's produces no new version.
+        tests:
+          - not_null
+      - name: is_inferred
+        description: true only on a late-arriving subscriber row synthesized because the subscriber_id was seen in a fact-side silver table but never in silver_subscriber_events. False everywhere else, including the unknown member row (a different concept, see the model description).
+        tests:
+          - not_null
+      - name: loaded_at
+        description: wall-clock time this gold table was built. Audit only, never used in any join or hash, and by design differs between successive builds even when every other column is byte-identical.
+        tests:
+          - not_null
+    tests:
+      - dbt_utils.mutually_exclusive_ranges:
+          lower_bound_column: effective_from
+          upper_bound_column: effective_to
+          partition_by: subscriber_id
+          gaps: not_allowed
+          zero_length_range_allowed: false
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - subscriber_id
+            - effective_from
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - subscriber_id
+          config:
+            where: "is_current"
+      - dbt_expectations.expect_column_distinct_count_to_equal_other_table:
+          column_name: subscriber_id
+          compare_model: ref('dim_subscriber')
+          compare_column_name: subscriber_id
+          compare_row_condition: "is_current"
