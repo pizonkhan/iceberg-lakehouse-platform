@@ -1,0 +1,282 @@
+version: 2
+
+models:
+  - name: fct_playback_events
+    description: >
+      Gold transaction fact. Grain: one row per completed playback session.
+      playback_session_id is the degenerate dimension, the unique grain
+      key; there is no separate surrogate key on this fact (see
+      .notes/modeling.md, "fct_playback_events"). Built full-refresh from
+      silver_playback_sessions (the quality-gated clean model, ~119.6M
+      rows), one to one: every clean silver row produces exactly one fact
+      row, none dropped and none duplicated (verified: built table row
+      count 119,640,099 exactly equals silver_playback_sessions' row
+      count).
+
+
+      Point-in-time dimension resolution: subscriber_sk and title_sk each
+      resolve through the literal half-open interval join modeling.md's
+      "Point-in-time join rule" section specifies for this fact, equality
+      on the natural key plus session_started_at falling inside
+      [effective_from, effective_to) of exactly one version of that
+      dimension. A left join is used (not inner) because the interval can
+      legitimately fail to cover session_started_at even when the natural
+      key exists in the dimension, and a miss is repaired with
+      coalesce() to the unknown member key (md5('-1'), generated through
+      the same dbt_utils.generate_surrogate_key(["'-1'"]) call every
+      dimension's own unknown row uses) rather than dropping the fact
+      row. device_sk is a plain equality FK (dim_device is Type 1, no
+      interval to resolve). session_date_key is computed directly from
+      session_started_at with dim_date's own date_key formula
+      (cast(date_format(session_started_at, '%Y%m%d') as integer))
+      instead of joining to dim_date, since date_key is a pure function
+      of the calendar date and dim_date's grain already covers this
+      fact's full timestamp range; verified with a relationships test
+      below regardless.
+
+
+      Real resolution outcomes on the built table, useful context for
+      anyone querying this fact: 11,193 rows (0.009%) resolve
+      subscriber_sk to the unknown member even though subscriber_id
+      exists in dim_subscriber, all 23 distinct subscribers, each with a
+      playback row timestamped at or a few dozen microseconds before that
+      subscriber's own earliest dim_subscriber version's effective_from
+      (a source-side timestamp precision/ordering artifact, not a load
+      bug: dim_subscriber's own late-arriving self-heal already confirms
+      every subscriber_id referenced by playback has real profile events,
+      so this residual miss is purely a same-instant boundary case, not a
+      missing dimension row). 20,646,958 rows (17.3%) resolve title_sk to
+      the unknown member: every one of the 5,000 real title_ids exists in
+      dim_title (verified, zero genuinely unseen titles), but 4,833 of
+      them have playback sessions timestamped before that title's own
+      first tracked catalog version's effective_from, i.e. the source
+      data does not actually guarantee "titles arrive from a controlled
+      catalog feed ahead of playback" the way modeling.md's prose
+      describes for the no-self-heal design choice on dim_title; flagged
+      in .notes/open-questions.md for the data modeler rather than
+      silently treated as expected, since it is a much larger fraction
+      than "an unseen title" implies. 2,392,702 rows (2.0%) resolve
+      device_sk to the unknown member, and this figure exactly equals the
+      count of rows with a null device_id in silver (verified): every
+      non-null device_id in the source resolves cleanly, the null-device
+      pathology is the entire cause.
+
+
+      Memory constraint and how this build worked within it: this
+      project's single-node Trino caps query memory at 1.5GB per node
+      (infra/trino/etc/config.properties), which a prior work package
+      found sits right at the ceiling for even a bare full-width scan of
+      this table. This model's base CTE projects only the 9
+      silver_playback_sessions columns the fact contract actually needs
+      (dropping playback_percent, playback_quality, and the four bronze
+      audit columns), the same narrow-projection technique proven
+      reliable for this table's quality-gate builds, rather than reading
+      the full 15-column width and letting three broadcast joins ride on
+      top of that. That, combined with the trino target's existing
+      session_properties in profiles.yml (already tuned for this exact
+      table by the silver work package and applying automatically to
+      every query against this target), was sufficient: the full build
+      completed in one pass, no additional per-model session_properties
+      override, no splitting into multiple physical passes. Real build:
+      228s to create the table (231s including hooks), 119,640,099 rows,
+      confirmed via `dbt build --select fct_playback_events --target
+      trino`.
+
+
+      Grain and uniqueness verification: playback_session_id not_null is
+      enforced as a standard dbt test (verified zero nulls, cheap to
+      check). A standard `unique` test (or dbt_utils.unique_combination_
+      of_columns) is deliberately NOT declared below, because it was
+      tried directly against this exact table and confirmed to crash the
+      Trino coordinator process outright (not a graceful
+      EXCEEDED_LOCAL_MEMORY_LIMIT query error, the container itself
+      restarted mid-query), consistent with .notes/open-questions.md's
+      prior finding that an exact GROUP BY or COUNT(DISTINCT) over ~120M
+      distinct string keys cannot run under this infrastructure's 1.5GB
+      cap, and worse here than that prior finding described. Declaring
+      that test in this file would make every future `dbt build` /
+      `dbt test` run risk taking down the shared Trino instance,
+      including for whoever else is building against it concurrently, so
+      it is omitted rather than shipped as a known landmine.
+
+
+      Real uniqueness WAS verified, exactly, just not through a single
+      dbt-native generic test: playback_session_id determines
+      session_started_at determines session_date_key one to one, so
+      partitioning the table into 44 non-overlapping monthly ranges by
+      session_date_key and running an exact `group by playback_session_id
+      having count(*) > 1` independently within each partition covers
+      every row exactly once with no cross-partition blind spot. Ran all
+      44 partitions (the largest, July 2026, is 15,170,827 rows on its
+      own and still completed in under 4 seconds): zero duplicate groups
+      in every single partition, and the sum of each partition's distinct
+      playback_session_id count across all 44 is exactly 119,640,099,
+      matching the table's total row count exactly. This is a genuine
+      exact proof, not the HyperLogLog approximation the silver work
+      package used for the same question (an approx_distinct check was
+      also run here as a fast independent cross-check: 119,501,274
+      against 119,640,099, a 0.116% gap fully inside HyperLogLog's
+      expected error at this cardinality, consistent with the exact
+      chunked result). Recorded in full in .notes/decisions.md, including
+      the exact chunk boundaries and per-chunk counts, since this
+      monthly-chunked pattern is exactly what the test-pyramid work
+      package (WP11, per open-questions.md) should promote into a real
+      custom generic test macro; adding that macro is out of this work
+      package's two-file scope (fct_playback_events.sql and this file
+      only).
+    columns:
+      - name: playback_session_id
+        description: >
+          Degenerate dimension and grain key: one row per completed
+          playback session, carried verbatim from silver. See the model
+          description above for how uniqueness was actually verified at
+          this row count (exact, via a 44-way monthly chunked check run
+          outside the dbt test framework) and why a dbt-native `unique`
+          test is not declared here (confirmed to crash the Trino
+          coordinator on this table).
+        tests:
+          - not_null
+
+      - name: subscriber_sk
+        description: >
+          FK to dim_subscriber, resolved to the version current at
+          session_started_at via the point-in-time interval join (see
+          model description). Never null: a miss falls back to the
+          unknown member (md5('-1')). 11,193 rows resolve to unknown
+          despite subscriber_id existing in dim_subscriber, a
+          microsecond-scale boundary artifact on 23 subscribers, not a
+          missing dimension row; see model description and
+          .notes/decisions.md for the full count and root cause.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_subscriber')
+                field: subscriber_sk
+
+      - name: title_sk
+        description: >
+          FK to dim_title, resolved to the version current at
+          session_started_at via the point-in-time interval join (see
+          model description). Never null: a miss falls back to the
+          unknown member (md5('-1')). 20,646,958 rows (17.3%) resolve to
+          unknown, nearly all because the referenced title's earliest
+          tracked catalog version postdates that session, not because
+          the title is genuinely unseen (every title_id in this fact
+          exists somewhere in dim_title); flagged in
+          .notes/open-questions.md as larger than modeling.md's framing
+          implies.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_title')
+                field: title_sk
+
+      - name: device_sk
+        description: >
+          FK to dim_device, plain equality on device_id (dim_device is
+          Type 1, no interval to resolve). Never null: falls back to the
+          unknown member (md5('-1')) when device_id is null (the
+          null-device pathology, 2,392,702 rows, exactly matching the
+          null device_id count in silver) or, though not observed in the
+          real data, when a non-null device_id has no dim_device match.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_device')
+                field: device_sk
+
+      - name: session_date_key
+        description: >
+          FK to dim_date (the base dimension, not a role-playing view),
+          computed directly from session_started_at with dim_date's own
+          YYYYMMDD date_key formula rather than joined, to avoid a fourth
+          broadcast join over this ~120M-row table; see model description
+          for why this is safe. Covered by a relationships test below in
+          addition to the tests explicitly called for in the work
+          package, since it is cheap to run and directly verifies the FK
+          claim.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+      - name: session_started_at
+        description: >
+          Event time the session began, at microsecond precision. Drives
+          every point-in-time dimension resolution on this fact (the
+          event-time column modeling.md's join rule names for
+          fct_playback_events).
+        tests:
+          - not_null
+
+      - name: session_ended_at
+        description: Event time the session ended, at microsecond precision.
+        tests:
+          - not_null
+
+      - name: watch_duration_seconds
+        description: >
+          Measure, additive. Seconds of the title actually watched during
+          this session. Source range on the real data is 30 to 14,400
+          seconds, well inside INTEGER width.
+        tests:
+          - not_null
+
+      - name: completion_pct
+        description: >
+          Measure, non-additive. watch_duration_seconds divided by the
+          resolved title's runtime in seconds (runtime_minutes * 60),
+          capped at 1.0000 so a session that overruns its title's runtime
+          (rewatched segments, buffering-inflated duration, and so on)
+          never reports over 100%. Null whenever the resolved title
+          version has no runtime_minutes, which covers both an
+          unresolved title join (title_sk fell back to unknown, whose own
+          runtime_minutes is null by the standard unknown-member rule)
+          and a resolved series title (runtime_minutes is always null for
+          series per dim_title's own contract). Verified on the real
+          build: the 39,228,063 null rows split exactly into 20,646,958
+          unresolved-title rows plus 18,581,105 resolved series rows,
+          with no unexplained remainder.
+        tests:
+          - dbt_utils.expression_is_true:
+              arguments:
+                expression: "is null or (completion_pct >= 0 and completion_pct <= 1)"
+
+      - name: buffering_events
+        description: >
+          Measure, additive. Count of rebuffer occurrences during the
+          session. Source range on the real data is 0 to 11, well inside
+          INTEGER width.
+        tests:
+          - not_null
+
+      - name: avg_bitrate_kbps
+        description: >
+          Measure, non-additive (a session-level average, never sum
+          across sessions). Nullable per modeling.md; no null values
+          exist in the current data, but the column is left nullable to
+          match the contract rather than the current snapshot, matching
+          the precedent set on dim_device's manufacturer/model_name/
+          os_name.
+
+      - name: is_completed
+        description: >
+          Flag, true when completion_pct is at least 0.9000. False (not
+          null) whenever completion_pct is null, via coalesce, so this
+          column is never null despite completion_pct itself being
+          nullable.
+        tests:
+          - not_null
+
+      - name: loaded_at
+        description: >
+          Wall-clock time this row was written by the gold build. Audit
+          only, never used in any join or hash; not expected to be
+          identical across repeated builds of otherwise unchanged data.
+        tests:
+          - not_null
