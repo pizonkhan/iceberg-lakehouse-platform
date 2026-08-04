@@ -12,6 +12,9 @@ dependencies = [
     "pyarrow==25.0.0",
     "pydantic==2.13.4",
     "structlog==26.1.0",
+    "dlt[pyiceberg,filesystem]==1.29.1",
+    "pyiceberg==0.11.1",
+    "sqlalchemy==2.0.51",
 ]
 
 [dependency-groups]
@@ -22,9 +25,9 @@ dev = [
 ]
 
 [tool.uv]
-# no installable Python package lives at the repo root yet (ingestion and
-# orchestration code land in later work packages), so this is a dependency
-# environment, not a built distribution.
+# ingestion/ is run as a module (`uv run python -m ingestion.pipeline`), not installed
+# as a distribution: no build backend is configured, so this stays a dependency
+# environment rather than a built package.
 package = false
 
 [tool.ruff]

@@ -7,6 +7,7 @@ CLAUDE.md
 .env
 .env.*
 !.env.example
+ingestion/.dlt/secrets.toml
 
 # python
 .venv/

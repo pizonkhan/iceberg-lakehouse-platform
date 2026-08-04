@@ -1,0 +1,20 @@
+# non-secret dlt project config, committed. Credentials live in secrets.toml, which is
+# generated at run start from the repository .env and gitignored (see settings.py).
+
+[data_writer]
+# rows per Iceberg data file. Default sizing otherwise produces far more, far smaller
+# parquet files than useful for the ~120M row playback_sessions table; this keeps the
+# file count (and therefore manifest size) in a sane range for Trino to scan.
+file_max_items = 2000000
+
+# playback_sessions/part-pathology-midstream-00025.parquet encodes buffering_count and
+# avg_bitrate_kbps as int64 where every other file in that directory has int32 (a second,
+# narrower schema-drift pathology beyond the playback_quality column, discovered only by
+# running the real data). dlt's strict default ("none") refuses to concatenate batches of
+# differing physical arrow type into one physical output file and raises rather than pick
+# a resolution on our behalf. "default" is the lossless option: compatible differences
+# (int32 -> int64 is a safe widening) are merged, values are never altered, incompatible
+# batches land in a separate physical file if they can't be merged. Bronze must not error
+# or lose data on this drift, so this is not a performance knob, it is required for
+# correctness. See .notes/decisions.md.
+arrow_concat_promote_options = "default"
