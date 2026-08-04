@@ -1,6 +1,9 @@
 {{
     config(
-        materialized='table'
+        materialized='incremental',
+        incremental_strategy='merge',
+        unique_key='billing_transaction_id',
+        on_schema_change='fail'
     )
 }}
 
@@ -11,6 +14,33 @@
 -- is already deduplicated on this id by the silver work package
 -- (1,500,100 distinct ids, see .notes/decisions.md 2026-08-04 dedup
 -- entry), so this build does not re-dedup.
+--
+-- Incremental via Iceberg MERGE (incremental_strategy='merge'), converted
+-- from the original full-refresh table. The watermark is bronze ingestion
+-- metadata (_ingested_at), not transaction_posted_at. silver_billing_ledger
+-- is itself rebuilt full-refresh on every run, but it passes bronze's
+-- original _ingested_at through untouched per row (see
+-- silver_billing_ledger.sql), so "_ingested_at > max(_ingested_at) already
+-- in this table" correctly identifies rows genuinely new to this run
+-- regardless of how old their transaction_posted_at is. A watermark on
+-- transaction_posted_at would silently drop any late-arriving billing
+-- event with an old posted date, since a truly late arrival is exactly a
+-- row whose event time is old but whose ingestion time is new; filtering
+-- on the event time would filter it straight back out. _ingested_at
+-- cannot make that mistake because it does not look at the event time at
+-- all.
+--
+-- Backfill: to reprocess a specific _ingested_at range through this same
+-- MERGE logic (for example, to re-pull a batch that was missed or
+-- corrected upstream) without dropping or rebuilding the table, run:
+--   dbt build --select fct_billing_transactions --target trino \
+--     --vars '{backfill_start: "2026-08-04 00:00:00.000000", backfill_end: "2026-08-05 00:00:00.000000"}'
+-- backfill_start and backfill_end are both optional and independently
+-- omittable (an omitted bound is open on that side); when either is set,
+-- it entirely replaces the normal watermark filter below for that run,
+-- it does not narrow it further. Do not pass --full-refresh for a
+-- backfill: --full-refresh drops and rebuilds the whole table from
+-- scratch, which is the thing this mechanism exists to avoid.
 --
 -- subscriber_sk resolves via the literal point-in-time interval-overlap
 -- predicate modeling.md's "Point-in-time join rule" section gives for
@@ -42,6 +72,44 @@
 -- specified, with zero exceptions across all 1,500,100 rows (charge
 -- always > 0, refund and credit always < 0, proration both signs). See
 -- .notes/decisions.md for the full grouped min/max check.
+--
+-- Watermark implementation note: Trino rejects a plain "where _ingested_at
+-- > (select max(_ingested_at) from {{ this }})" scalar subquery here with
+-- "Given correlated subquery is not supported", because dbt-trino's merge
+-- strategy compiles the incremental filter into a view that becomes the
+-- MERGE statement's USING source, and that source ends up subquerying its
+-- own MERGE target (confirmed directly against this project's Trino,
+-- see .notes/decisions.md). The fix used below is the standard workaround
+-- for this class of engine limitation: resolve the watermark to a plain
+-- literal with a `run_query` pre-query before the main SQL is assembled,
+-- so the compiled MERGE source never references the target table at all.
+--
+-- The gold fact table itself does not persist _ingested_at (it is bronze/
+-- silver bookkeeping, not part of this fact's column contract, and this
+-- work package changes materialization and filtering only, never the
+-- contract), so the pre-query below recovers the watermark by joining
+-- silver back to the target on the shared grain key: the maximum
+-- _ingested_at among silver rows whose billing_transaction_id is already
+-- present in {{ this }}. Because silver_billing_ledger always carries
+-- every row's original _ingested_at (rebuilt full-refresh but never
+-- altering that value) and MERGE only ever adds or updates rows matched
+-- by billing_transaction_id, this join-based maximum is exactly the
+-- ingestion-time watermark of the last successfully merged batch, with no
+-- need for a hidden extra column on the fact.
+
+{% set max_ingested_at_literal = '1900-01-01 00:00:00.000000' %}
+{% if is_incremental() and var('backfill_start', none) is none and var('backfill_end', none) is none %}
+    {% set get_max_ingested_at_query %}
+        select coalesce(max(sbl._ingested_at), timestamp '1900-01-01 00:00:00.000000') as max_ingested_at
+        from {{ ref('silver_billing_ledger') }} as sbl
+        inner join {{ this }} as f
+            on f.billing_transaction_id = sbl.billing_transaction_id
+    {% endset %}
+    {% if execute %}
+        {% set max_ingested_at_value = run_query(get_max_ingested_at_query).columns['max_ingested_at'].values()[0] %}
+        {% set max_ingested_at_literal = max_ingested_at_value.strftime('%Y-%m-%d %H:%M:%S.%f') %}
+    {% endif %}
+{% endif %}
 
 with silver as (
 
@@ -56,8 +124,24 @@ with silver as (
         transaction_type,
         transaction_posted_at,
         amount_usd,
-        tax_amount_usd
+        tax_amount_usd,
+        _ingested_at
     from {{ ref('silver_billing_ledger') }}
+
+    {% if is_incremental() %}
+    {% if var('backfill_start', none) is not none or var('backfill_end', none) is not none %}
+    -- backfill mode: explicit _ingested_at window replaces the normal
+    -- watermark entirely, see the invocation note above.
+    where _ingested_at >= {{ "timestamp '" ~ var('backfill_start', '1900-01-01 00:00:00.000000') ~ "'" }}
+      and _ingested_at <  {{ "timestamp '" ~ var('backfill_end', '9999-12-31 23:59:59.999999') ~ "'" }}
+    {% else %}
+    -- normal watermark: bronze ingestion time, not event time, see the
+    -- header comment above for why. max_ingested_at_literal already
+    -- defaults to a sentinel low timestamp when {{ this }} has no rows
+    -- yet (coalesce runs inside the pre-query above).
+    where _ingested_at > timestamp '{{ max_ingested_at_literal }}'
+    {% endif %}
+    {% endif %}
 
 ),
 

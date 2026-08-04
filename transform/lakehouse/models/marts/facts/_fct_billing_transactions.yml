@@ -6,11 +6,34 @@ models:
       Gold transaction fact (.notes/modeling.md). Grain: one row per
       discrete billing ledger event (charge, refund, credit, or proration)
       posted to one subscriber's account. billing_transaction_id is the
-      degenerate dimension and unique merge key. Built as a full-refresh
-      table this work package, not incremental (a later work package):
-      silver_billing_ledger is already deduplicated to 1,500,100 distinct
-      billing_transaction_id values, so this build reprocesses the whole
-      source every run rather than diffing against prior state.
+      degenerate dimension and unique merge key. silver_billing_ledger is
+      already deduplicated to 1,500,100 distinct billing_transaction_id
+      values.
+
+      Incremental via Iceberg MERGE (materialized='incremental',
+      incremental_strategy='merge', unique_key='billing_transaction_id',
+      on_schema_change='fail'), converted from an earlier full-refresh
+      table build. The watermark filter is bronze ingestion metadata
+      (_ingested_at), never transaction_posted_at: silver_billing_ledger
+      rebuilds full-refresh every run but passes bronze's original
+      _ingested_at through untouched per row, so filtering on
+      "_ingested_at > max(_ingested_at) already in this table" correctly
+      catches rows genuinely new to this run no matter how old their
+      transaction_posted_at is. A watermark on transaction_posted_at would
+      silently drop a late-arriving billing event with an old posted date,
+      which is precisely what a late arrival is: old event time, new
+      ingestion time.
+
+      Backfill: set the dbt vars backfill_start and/or backfill_end
+      (ISO timestamp strings) to reprocess that specific _ingested_at
+      range through the same MERGE, in place of the normal watermark,
+      without dropping or rebuilding the table:
+        dbt build --select fct_billing_transactions --target trino
+          --vars '{backfill_start: "2026-08-04 00:00:00.000000",
+                    backfill_end: "2026-08-05 00:00:00.000000"}'
+      Either bound may be omitted (open-ended on that side). Do not pass
+      --full-refresh for a backfill, that drops and rebuilds the whole
+      table, which is what this mechanism exists to avoid.
 
       subscriber_sk resolves through the exact point-in-time
       interval-overlap predicate modeling.md's "Point-in-time join rule"
