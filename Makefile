@@ -10,8 +10,8 @@ up:
 down:
 	$(COMPOSE) down
 
-seed:
-	@echo "make seed: not implemented yet (lands with the ingestion work package)" && exit 1
+seed: up
+	uv run python -m ingestion.pipeline
 
 build:
 	$(DBT) build $(DBT_DIRS) --target duckdb
