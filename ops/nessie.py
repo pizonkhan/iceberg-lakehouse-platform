@@ -49,6 +49,23 @@ class MergeResult(BaseModel):
     resultant_target_hash: str | None = Field(default=None, alias="resultantTargetHash")
 
 
+class CommitLogEntry(BaseModel):
+    """One entry from GET .../history, newest first (Nessie's own order). operations
+    is None unless fetch_all=True was passed to get_log: each element is a raw PUT/
+    DELETE operation dict with a "key" (namespace/table path) and, for PUT, a
+    "content" block carrying metadataLocation and snapshotId for that commit, the
+    same fields a client would otherwise have to re-derive from Iceberg metadata.json
+    directly."""
+
+    model_config = ConfigDict(frozen=True)
+
+    hash: str
+    message: str
+    commit_time: str
+    parent_hash: str | None
+    operations: list[dict[str, Any]] | None = None
+
+
 def _call(method: str, url: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(url, data=data, method=method)
@@ -69,6 +86,96 @@ def get_reference(nessie_uri: str, ref_name: str) -> Reference:
     """Read a branch or tag's current hash. Used to find main's HEAD before branching
     and, again, right before a merge (main may have moved since the branch was cut)."""
     payload = _call("GET", f"{nessie_uri}/api/v2/trees/{ref_name}")
+    return Reference.model_validate(payload["reference"])
+
+
+def get_log(
+    nessie_uri: str,
+    ref: str,
+    *,
+    limit: int = 20,
+    fetch_all: bool = True,
+    filter_expr: str | None = None,
+) -> list[CommitLogEntry]:
+    """Read ref's commit log (GET /api/v2/trees/{ref}/history), newest first.
+
+    ref can be a plain branch/tag name (current HEAD's history) or a checked
+    reference in `{ref}@{hash}` form (history as of that hash), confirmed live
+    against this stack: both forms resolve through the Iceberg REST catalog's own
+    `{ref}` path segment identically to how ops/wap.py's _create_catalog already
+    points a Trino catalog at a bare branch name, and a bare content hash with no
+    branch prefix at all also resolves (confirmed via GET .../iceberg/{hash}/v1/config
+    returning 200), though `{branch}@{hash}` is used throughout this project since it
+    keeps the branch the hash came from visible in the ref string.
+
+    fetch_all=True (the default) asks for `fetch=ALL`, which is the only way to get
+    each entry's `operations`: without it Nessie returns operations=null and the
+    caller cannot see which table keys a commit touched or what metadataLocation/
+    snapshotId it wrote, confirmed live (the default `fetch` value returns
+    operations=null even though the field is present in the response shape).
+
+    filter_expr, if given, is a Nessie CEL expression evaluated server-side against
+    each commit (for example `commit.message.contains('demo_billing_batch')` to
+    narrow the log to commits touching one table without paging through unrelated
+    history, such as this project's own dbt/elementary bookkeeping commits).
+    Confirmed live that the CEL root object is `commit` (commitMeta fields only,
+    for example `commit.message`), not `operations` directly: filtering on
+    `commit.operations...` was tried against the live server and rejected with
+    "undefined field 'operations'".
+    """
+    params: dict[str, str] = {"limit": str(limit)}
+    if fetch_all:
+        params["fetch"] = "ALL"
+    if filter_expr:
+        params["filter"] = filter_expr
+    query = urllib.parse.urlencode(params)
+    payload = _call("GET", f"{nessie_uri}/api/v2/trees/{ref}/history?{query}")
+    entries: list[CommitLogEntry] = []
+    for raw_entry in payload.get("logEntries", []):
+        meta = raw_entry["commitMeta"]
+        entries.append(
+            CommitLogEntry(
+                hash=meta["hash"],
+                message=meta["message"],
+                commit_time=meta["commitTime"],
+                parent_hash=raw_entry.get("parentCommitHash"),
+                operations=raw_entry.get("operations"),
+            )
+        )
+    return entries
+
+
+def assign_reference(
+    nessie_uri: str, ref_name: str, expected_hash: str, target_hash: str
+) -> Reference:
+    """Move ref_name's pointer to target_hash: the real rollback mechanism (Nessie
+    calls this "assign", the CLI calls it `nessie branch --force`, git calls the same
+    operation `reset --hard`). expected_hash is the ref's current hash, the same
+    optimistic-concurrency guard merge_branch and delete_reference already use
+    (`{ref}@{hash}` in the path, not a body field): a stale caller whose expected_hash
+    no longer matches the server's current hash gets rejected rather than silently
+    clobbering a concurrent write.
+
+    target_hash does not have to be an ancestor of expected_hash: Nessie will move the
+    pointer to any valid hash in the repository's history, forward, sideways, or (the
+    rollback case this project uses it for) backward. This does not delete the commits
+    between target_hash and expected_hash, it only makes them unreachable from
+    ref_name's HEAD (confirmed live: get_log(ref_name) after an assign no longer lists
+    the now-orphaned commits, but they are still real rows in Nessie's own storage
+    until a separate GC pass reclaims them, see .notes/decisions.md's retention entry).
+
+    Body shape confirmed live against the running server: {"type": "BRANCH", "name":
+    ref_name, "hash": target_hash}, the same source-ref shape create_branch's body
+    uses, just naming the target hash instead of a branch-creation source. A body
+    wrapped in an "assignTo" key was tried first (by analogy with the Nessie Java
+    client's naming) and rejected outright ("Target hash must be provided."), the
+    flat shape is what the server actually accepts.
+    """
+    payload = _call(
+        "PUT",
+        f"{nessie_uri}/api/v2/trees/{ref_name}@{expected_hash}",
+        body={"type": "BRANCH", "name": ref_name, "hash": target_hash},
+    )
     return Reference.model_validate(payload["reference"])
 
 
