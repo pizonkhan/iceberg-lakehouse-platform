@@ -15,6 +15,13 @@ dependencies = [
     "dlt[pyiceberg,filesystem]==1.29.1",
     "pyiceberg==0.11.1",
     "sqlalchemy==2.0.51",
+    "dagster==1.13.16",
+    "dagster-dbt==0.29.16",
+    "dagster-webserver==1.13.16",
+    # already present transitively via dbt-trino; pinned explicitly here because
+    # ops/wap.py imports trino.dbapi directly to issue CREATE CATALOG / DROP CATALOG,
+    # not just through the dbt adapter.
+    "trino==0.338.0",
 ]
 
 [dependency-groups]
