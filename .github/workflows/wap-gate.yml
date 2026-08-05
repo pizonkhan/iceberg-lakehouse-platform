@@ -1,0 +1,151 @@
+name: write-audit-publish gate
+
+# Brings up the full local stack (infra/docker-compose.yml: Postgres, MinIO, Nessie,
+# Trino) on the runner itself and exercises ops/wap.py against it, the same way a
+# developer would locally. There is no separate "CI mode": this workflow runs the real
+# mechanism against a real, if short-lived, Nessie/Trino/MinIO stack, not a mock.
+#
+# Two demonstrations, in order:
+#   1. a clean run (wap_demo_dim, unmodified) must succeed end to end: branch created,
+#      built, tested, merged to main, branch deleted.
+#   2. a deliberately bad run (wap_demo_dim with a null injected into a not_null
+#      column) must be blocked: ops/wap.py must exit nonzero and must not touch main.
+#
+# The job is green when the gate behaves correctly in both directions, including
+# correctly blocking the bad load. A permanently red job on every bad-load run would
+# be a useless, un-actionable check; the job goes red only if the gate itself is
+# broken, either demonstration behaving unexpectedly; e.g. the bad load merging to
+# main after all. That is the actual regression this workflow protects against over
+# time.
+#
+# Public-repo standard runners (ubuntu-latest) are 4 vCPU / 16GB RAM with no minute
+# cap, confirmed against this project's own measured peak stack footprint (~4.5GB
+# across the four services, see .notes/decisions.md), comfortably inside budget
+# without needing larger runners.
+#
+# COMPOSE_PROJECT_NAME below deliberately overrides infra/docker-compose.yml's own
+# fixed `name: iceberg-lakehouse`. On an isolated GitHub-hosted runner this would not
+# matter (nothing else is ever on that machine), but this project's docker-compose.yml
+# hardcodes that project name, so any local dry run of this exact workflow (`act`, a
+# self-hosted runner, or any other setup that reuses a developer's Docker daemon
+# instead of a throwaway VM) would otherwise attach to and, on this workflow's own
+# teardown step, `down -v` the same containers and volumes as that developer's real,
+# already-running local stack. Confirmed the hard way during this workflow's own
+# development: see .notes/failures.md. wap-ci-<run id> keeps this workflow's stack
+# fully separate under any execution method, not just the real GitHub-hosted case
+# where it happens not to matter.
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "ops/**"
+      - "transform/**"
+      - "infra/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/wap-gate.yml"
+  pull_request:
+    paths:
+      - "ops/**"
+      - "transform/**"
+      - "infra/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/wap-gate.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: wap-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSE_PROJECT_NAME: wap-ci-${{ github.run_id }}
+
+jobs:
+  wap-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: check out repository
+        uses: actions/checkout@v4
+
+      - name: configure local stack environment
+        # .env is gitignored and never committed, but this stack has no real secrets:
+        # MinIO/Postgres credentials only ever exist inside this run's own throwaway
+        # containers. .env.example's values are usable as-is.
+        run: cp .env.example .env
+
+      - name: install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+
+      - name: install python dependencies
+        run: uv sync --frozen
+
+      - name: bring up the stack (postgres, minio, nessie, trino)
+        run: docker compose -f infra/docker-compose.yml --env-file .env up -d --wait
+
+      - name: confirm the iceberg REST catalog answers before touching it
+        run: |
+          curl -sf http://localhost:19120/iceberg/v1/config
+          echo
+          curl -sf http://localhost:8080/v1/info
+          echo
+
+      - name: clean run, must succeed (write, audit, publish all pass)
+        run: uv run python -m ops.wap --select wap_demo_dim
+
+      - name: verify the clean run's data landed on main
+        run: |
+          count=$(docker exec "${COMPOSE_PROJECT_NAME}-trino-1" trino --execute \
+            "SELECT count(*) FROM iceberg.dev_wap_demo.wap_demo_dim" | tr -d '"')
+          echo "row count on main after the clean run: $count"
+          if [ "$count" != "8" ]; then
+            echo "::error::expected 8 rows on main after the clean run, got $count"
+            exit 1
+          fi
+
+      - name: bad-load run, quality gate must block it
+        id: bad_run
+        run: |
+          set +e
+          uv run python -m ops.wap --select wap_demo_dim \
+            --vars '{"wap_demo_inject_bad_row": true}'
+          wap_exit_code=$?
+          set -e
+          echo "wap.py exit code: $wap_exit_code"
+          if [ "$wap_exit_code" -eq 0 ]; then
+            echo "::error::bad load was not blocked; ops/wap.py exited 0 when the quality gate should have failed it"
+            exit 1
+          fi
+          echo "quality gate correctly blocked the bad load (ops/wap.py exited $wap_exit_code, nonzero as expected)"
+
+      - name: verify main still shows no trace of the bad load
+        run: |
+          count=$(docker exec "${COMPOSE_PROJECT_NAME}-trino-1" trino --execute \
+            "SELECT count(*) FROM iceberg.dev_wap_demo.wap_demo_dim" | tr -d '"')
+          echo "row count on main after the blocked bad-load run: $count"
+          if [ "$count" != "8" ]; then
+            echo "::error::expected main to still show 8 rows after the blocked bad-load run, got $count"
+            exit 1
+          fi
+          bad_rows=$(docker exec "${COMPOSE_PROJECT_NAME}-trino-1" trino --execute \
+            "SELECT count(*) FROM iceberg.dev_wap_demo.wap_demo_dim WHERE demo_code IS NULL OR demo_id = 99" \
+            | tr -d '"')
+          if [ "$bad_rows" != "0" ]; then
+            echo "::error::found $bad_rows row(s) matching the injected violation on main, the gate did not hold"
+            exit 1
+          fi
+
+      - name: dump service logs on failure
+        if: failure()
+        run: docker compose -f infra/docker-compose.yml --env-file .env logs --no-color --tail=200
+
+      - name: tear down the stack
+        if: always()
+        run: docker compose -f infra/docker-compose.yml --env-file .env down -v
