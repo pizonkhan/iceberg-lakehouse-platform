@@ -38,7 +38,12 @@ lakehouse:
       user: "{{ env_var('DBT_TRINO_USER', 'dbt') }}"
       host: "{{ env_var('DBT_TRINO_HOST', 'localhost') }}"
       port: "{{ env_var('DBT_TRINO_PORT', '8080') | int }}"
-      database: iceberg
+      # defaults to the static "iceberg" catalog (main branch). ops/wap.py overrides
+      # this per run to a dynamically created catalog scoped to a Nessie branch
+      # (iceberg_wap_<run_id>, see .notes/decisions.md for why a separate catalog
+      # registration per ref is the mechanism, not a session property: Trino's REST
+      # catalog connector only exposes rest-catalog.uri at catalog-registration time).
+      database: "{{ env_var('DBT_TRINO_DATABASE', 'iceberg') }}"
       schema: "{{ env_var('DBT_TRINO_SCHEMA', 'dev') }}"
       threads: 4
       # this single-node Trino caps query.max-memory-per-node at 1.5GB

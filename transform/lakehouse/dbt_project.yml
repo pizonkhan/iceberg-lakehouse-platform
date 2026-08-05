@@ -40,3 +40,9 @@ models:
         +schema: dimensions
       facts:
         +schema: facts
+    # write-audit-publish demonstration scope (ops/wap.py, docs/evidence/write-audit-publish/).
+    # Isolated in its own schema, no dimension/fact/silver model reads from it and it reads
+    # from nothing else: purpose-built so the WAP mechanism has a small, fast target.
+    wap_demo:
+      +materialized: table
+      +schema: wap_demo

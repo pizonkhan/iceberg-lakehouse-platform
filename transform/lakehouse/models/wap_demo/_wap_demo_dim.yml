@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: wap_demo_dim
+    description: >
+      Purpose-built demonstration table for the write-audit-publish
+      mechanism (ops/wap.py). Eight static rows of region-code lookup
+      data, nothing a real dimension or fact reads from. Exists solely
+      to give the WAP script a small, fast build-and-test scope to run
+      against a Nessie branch: a clean run publishes all eight rows to
+      main, a deliberately bad run (wap_demo_inject_bad_row var) adds a
+      ninth row with a null demo_code that trips this model's own
+      not_null test and must never reach main. See
+      docs/evidence/write-audit-publish/.
+    columns:
+      - name: demo_id
+        description: Synthetic integer key for the demo row, unique per row.
+        tests:
+          - unique
+          - not_null
+      - name: demo_code
+        description: >
+          Short region-style code for the demo row. The bad-load
+          demonstration sets this to null on an injected row to trip
+          this column's not_null test, the actual quality gate ops/wap.py
+          is checking.
+        tests:
+          - not_null
+      - name: demo_label
+        description: Human-readable label for the demo row.
+      - name: loaded_at
+        description: Timestamp the row was materialized by this dbt run.
