@@ -52,8 +52,8 @@ the 150 subscribers whose current status is `churned`.
 
 One honest note on where this decision itself came from: the type assignment (`dim_subscriber` =
 Type 6, `dim_title` = Type 2, `dim_plan` = Type 3, `dim_device` = Type 1) was fixed in the
-approved plan before any builder work started, per `CLAUDE.md` and the opening line of
-`.notes/modeling.md`. A builder who disagreed with a grain or type assignment had an explicit
+approved plan before any builder work started, per this project's own working standards and the
+opening line of `.notes/modeling.md`. A builder who disagreed with a grain or type assignment had an explicit
 escape hatch, stop and flag it in `modeling.md`, and nobody ever used it for `dim_subscriber`.
 The repo's answer to "why Type 6" is therefore the mechanics, the maintenance rules, and the
 verification numbers above, all real and extensively exercised, rather than a first-principles
@@ -213,9 +213,9 @@ commit entry), `ops/wap.py`, `ops/nessie.py`.
 
 ## 5. What actually stops a gold model from reading bronze directly?
 
-Until recently, nothing mechanical did. `CLAUDE.md` states the rule as a hard constraint, "a gold
-model reading directly from bronze is an architecture violation and gets rejected, no
-exceptions," but that was enforced only by human and agent review at build time. A red team pass
+Until recently, nothing mechanical did. This project's working standards state the rule as a hard
+constraint, "a gold model reading directly from bronze is an architecture violation and gets
+rejected, no exceptions," but that was enforced only by human and agent review at build time. A red team pass
 that ran an interview simulation against this exact repo asked the obvious follow-up: how do you
 know that rule actually holds, prove it. The honest answer at the time was "someone would have
 checked at review time," which is not a proof. That gap was closed in the same pass, not left
@@ -234,9 +234,9 @@ silently over a stale or empty manifest. Verified directly: zero violations acro
 in the project at the time this test was added. It now runs as part of `make test`, no separate
 wiring needed.
 
-Files: `tests/unit/test_medallion_boundary.py`, `CLAUDE.md` ("Medallion layer boundaries"),
-`transform/lakehouse/models/staging/sources.yml`, `.notes/decisions.md` (2026-08-05, red team
-pass part 4).
+Files: `tests/unit/test_medallion_boundary.py`, `docs/05-implementation.md` (medallion layer
+boundaries), `transform/lakehouse/models/staging/sources.yml`, `.notes/decisions.md` (2026-08-05,
+red team pass part 4).
 
 ---
 
@@ -561,8 +561,8 @@ lesson:
    understood but not fixed at its source is not resolved, no matter how precisely it is
    documented.
 4. **Write the mechanical enforcement test at the same time as the rule, not after an interview
-   simulation asks for it.** The medallion-boundary rule sat in `CLAUDE.md` as review-only
-   convention for the whole build; `tests/unit/test_medallion_boundary.py` should have existed
+   simulation asks for it.** The medallion-boundary rule sat as review-only convention for the
+   whole build; `tests/unit/test_medallion_boundary.py` should have existed
    from the first gold model, not been added retroactively once a red team pass asked "prove it"
    and got no good answer.
 5. **Parameterize every host port from the start.** MinIO's host API port and Postgres's host
