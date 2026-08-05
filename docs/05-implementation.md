@@ -57,7 +57,7 @@ One more thing worth knowing: there is no dbt-native `unique` test on `playback_
 
 ## Gold: dimensions
 
-Gold models live in `transform/lakehouse/models/marts/dimensions/` and `.../facts/`. A gold model reading directly from bronze is a rejected architecture violation per `CLAUDE.md`; every dimension and fact reads from silver.
+Gold models live in `transform/lakehouse/models/marts/dimensions/` and `.../facts/`. A gold model reading directly from bronze is a rejected architecture violation under this project's medallion layer rule; every dimension and fact reads from silver.
 
 ### dim_subscriber.sql: Type 6 hybrid SCD
 

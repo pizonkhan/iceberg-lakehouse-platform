@@ -1,8 +1,8 @@
 """Tests for generation/rng.py: the deterministic per-label RNG stream.
 
 The project's documented reproducibility guarantee (generation/rng.py's
-module docstring, and CLAUDE.md's "every random generator explicitly
-seeded") rests entirely on child_rng(seed, label): the same (seed, label)
+module docstring, and this project's rule that every random generator is
+explicitly seeded) rests entirely on child_rng(seed, label): the same (seed, label)
 pair must always produce the same draws, and two different labels drawn
 from the same seed must never correlate, regardless of what else has run
 before them. These tests verify both halves of that guarantee directly.

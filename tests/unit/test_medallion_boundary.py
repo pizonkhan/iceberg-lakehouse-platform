@@ -1,5 +1,5 @@
-"""Mechanically enforces CLAUDE.md's medallion layer boundary: "A gold model reading
-directly from bronze is an architecture violation and gets rejected, no exceptions."
+"""Mechanically enforces this project's medallion layer boundary: a gold model reading
+directly from bronze is an architecture violation and gets rejected, no exceptions.
 
 Before this test existed, that rule was enforced only by human/agent review at build
 time, with no automated check catching a future violation. Reads the static dbt
@@ -19,9 +19,9 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "transform" / "lakehouse" / "target" / "manifest.json"
 
-# staging/ is the one layer CLAUDE.md and sources.yml both name as the sanctioned
-# place bronze is read from directly ("staging models are the only place these
-# sources are read from directly", transform/lakehouse/models/staging/sources.yml).
+# staging/ is the one layer sources.yml names as the sanctioned place bronze is
+# read from directly ("staging models are the only place these sources are read
+# from directly", transform/lakehouse/models/staging/sources.yml).
 # intermediate/ (silver) and marts/ (gold: dimensions, facts, bridge) must reach
 # bronze data only transitively, through a staging/silver ref(), never a direct
 # source('bronze', ...).

@@ -38,8 +38,8 @@ from orchestration.project import lakehouse_project
 # Dagster UI by that same layer, since dbt "groups" (a distinct dbt concept, unused
 # in this project) are what it looks at by default, not schema or folder. This
 # override reads the model's dbt fqn (its path under models/) instead, so the UI's
-# asset graph groups by staging / silver / dimensions / facts, matching CLAUDE.md's
-# medallion layer boundaries directly.
+# asset graph groups by staging / silver / dimensions / facts, matching this
+# project's medallion layer boundaries directly.
 class LakehouseDbtTranslator(DagsterDbtTranslator):
     def get_group_name(self, dbt_resource_props: Mapping[str, Any]) -> str | None:
         fqn = dbt_resource_props.get("fqn", [])

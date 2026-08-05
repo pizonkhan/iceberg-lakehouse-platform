@@ -51,7 +51,7 @@ _BRONZE_OUTS = {
             f"append-only, loaded by dlt from generation/output/{entity.directory}/. "
             "Source columns verbatim plus ingestion metadata "
             "(_source_file, _ingested_at, _batch_id, _payload_hash). Never modified "
-            "after load, see CLAUDE.md's medallion layer boundaries."
+            "after load, per this project's medallion layer boundaries (docs/05-implementation.md)."
         ),
         group_name="bronze",
     )

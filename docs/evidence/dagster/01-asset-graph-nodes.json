@@ -18,7 +18,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_billing_ledger: raw, append-only, loaded by dlt from generation/output/billing_ledger/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_billing_ledger: raw, append-only, loaded by dlt from generation/output/billing_ledger/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_billing_ledger",
         "isAutoCreatedStub": false,
@@ -45,7 +45,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_devices: raw, append-only, loaded by dlt from generation/output/devices/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_devices: raw, append-only, loaded by dlt from generation/output/devices/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_devices",
         "isAutoCreatedStub": false,
@@ -72,7 +72,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_plans: raw, append-only, loaded by dlt from generation/output/plans/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_plans: raw, append-only, loaded by dlt from generation/output/plans/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_plans",
         "isAutoCreatedStub": false,
@@ -99,7 +99,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_playback_sessions: raw, append-only, loaded by dlt from generation/output/playback_sessions/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_playback_sessions: raw, append-only, loaded by dlt from generation/output/playback_sessions/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_playback_sessions",
         "isAutoCreatedStub": false,
@@ -126,7 +126,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_signup_funnel: raw, append-only, loaded by dlt from generation/output/signup_funnel/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_signup_funnel: raw, append-only, loaded by dlt from generation/output/signup_funnel/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_signup_funnel",
         "isAutoCreatedStub": false,
@@ -153,7 +153,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_subscriber_events: raw, append-only, loaded by dlt from generation/output/subscriber_events/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_subscriber_events: raw, append-only, loaded by dlt from generation/output/subscriber_events/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_subscriber_events",
         "isAutoCreatedStub": false,
@@ -180,7 +180,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_title_events: raw, append-only, loaded by dlt from generation/output/title_events/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_title_events: raw, append-only, loaded by dlt from generation/output/title_events/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_title_events",
         "isAutoCreatedStub": false,
@@ -207,7 +207,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_title_genres: raw, append-only, loaded by dlt from generation/output/title_genres/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_title_genres: raw, append-only, loaded by dlt from generation/output/title_genres/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_title_genres",
         "isAutoCreatedStub": false,
@@ -234,7 +234,7 @@
           }
         ],
         "dependencyKeys": [],
-        "description": "Bronze Iceberg table iceberg.bronze.bronze_watchlist_adds: raw, append-only, loaded by dlt from generation/output/watchlist_adds/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, see CLAUDE.md's medallion layer boundaries.",
+        "description": "Bronze Iceberg table iceberg.bronze.bronze_watchlist_adds: raw, append-only, loaded by dlt from generation/output/watchlist_adds/. Source columns verbatim plus ingestion metadata (_source_file, _ingested_at, _batch_id, _payload_hash). Never modified after load, per this project's medallion layer boundaries.",
         "groupName": "bronze",
         "id": "w.bronze/bronze_watchlist_adds",
         "isAutoCreatedStub": false,
