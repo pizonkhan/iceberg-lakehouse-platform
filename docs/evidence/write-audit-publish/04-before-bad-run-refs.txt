@@ -1,0 +1,15 @@
+=== main branch refs before the bad-load WAP run ===
+{
+    "token": null,
+    "references": [
+        {
+            "type": "BRANCH",
+            "name": "main",
+            "hash": "9522c1eb08e08ce0f15431253ce6e69a59d568c35ab688a990c6772b7dac301b"
+        }
+    ],
+    "hasMore": false
+}
+
+=== row count on main before the bad-load run (must be unaffected) ===
+"8"

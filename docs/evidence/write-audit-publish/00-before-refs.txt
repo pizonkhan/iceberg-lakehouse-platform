@@ -1,0 +1,22 @@
+=== main branch refs before the clean WAP run (rebuilt stack, final script version) ===
+{
+    "token": null,
+    "references": [
+        {
+            "type": "BRANCH",
+            "name": "main",
+            "hash": "9f1691c0bed4ae5e77813628d9722baec39808463abf2035d5f7803798e01f4f"
+        }
+    ],
+    "hasMore": false
+}
+
+=== schemas visible on the main-scoped iceberg catalog before the clean WAP run ===
+"bronze"
+"dev"
+"dev_dimensions"
+"dev_facts"
+"dev_silver"
+"dev_staging"
+"information_schema"
+"system"

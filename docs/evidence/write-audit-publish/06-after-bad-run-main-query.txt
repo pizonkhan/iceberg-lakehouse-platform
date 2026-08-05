@@ -1,0 +1,36 @@
+=== main branch refs after the bad-load WAP run (branch left for inspection, main hash unchanged) ===
+{
+    "token": null,
+    "references": [
+        {
+            "type": "BRANCH",
+            "name": "main",
+            "hash": "9522c1eb08e08ce0f15431253ce6e69a59d568c35ab688a990c6772b7dac301b"
+        },
+        {
+            "type": "BRANCH",
+            "name": "wap_20260805t005038z_2b912605",
+            "hash": "6a69e9666e75a89241af6eb098e01b539d7e7906692db79ea7c274029ba30f41"
+        }
+    ],
+    "hasMore": false
+}
+
+=== row count on main after the bad-load run: must still be 8, no trace of the bad row ===
+"8"
+
+=== full contents of main's wap_demo_dim after the bad-load run: must be exactly the 8 clean rows, no demo_id=99, no null demo_code ===
+ demo_id |  demo_code   |  demo_label  
+---------+--------------+--------------
+       1 | us-east      | US East      
+       2 | us-west      | US West      
+       3 | eu-central   | EU Central   
+       4 | eu-west      | EU West      
+       5 | ap-southeast | AP Southeast 
+       6 | ap-northeast | AP Northeast 
+       7 | sa-east      | SA East      
+       8 | af-south     | AF South     
+(8 rows)
+
+=== explicit check: any null demo_code or demo_id=99 on main? expect 0 rows ===
+"0"

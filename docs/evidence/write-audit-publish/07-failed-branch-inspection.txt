@@ -1,0 +1,18 @@
+=== inspecting the leftover failed branch directly: register a one-off catalog scoped to it ===
+CREATE CATALOG
+
+=== the failed branch's own copy of wap_demo_dim: this is what a reviewer inspecting the failed branch would see, the bad row included ===
+ demo_id |  demo_code   |                             demo_label                              
+---------+--------------+---------------------------------------------------------------------
+       1 | us-east      | US East                                                             
+       2 | us-west      | US West                                                             
+       3 | eu-central   | EU Central                                                          
+       4 | eu-west      | EU West                                                             
+       5 | ap-southeast | AP Southeast                                                        
+       6 | ap-northeast | AP Northeast                                                        
+       7 | sa-east      | SA East                                                             
+       8 | af-south     | AF South                                                            
+      99 | NULL         | bad row: null demo_code, injected by the WAP bad-load demonstration 
+(9 rows)
+
+DROP CATALOG

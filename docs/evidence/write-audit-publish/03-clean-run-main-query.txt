@@ -1,0 +1,21 @@
+=== querying iceberg.dev_wap_demo.wap_demo_dim through the static main-scoped 'iceberg' catalog ===
+ demo_id |  demo_code   |  demo_label  |           loaded_at            
+---------+--------------+--------------+--------------------------------
+       1 | us-east      | US East      | 2026-08-05 00:50:06.648000 UTC 
+       2 | us-west      | US West      | 2026-08-05 00:50:06.648000 UTC 
+       3 | eu-central   | EU Central   | 2026-08-05 00:50:06.648000 UTC 
+       4 | eu-west      | EU West      | 2026-08-05 00:50:06.648000 UTC 
+       5 | ap-southeast | AP Southeast | 2026-08-05 00:50:06.648000 UTC 
+       6 | ap-northeast | AP Northeast | 2026-08-05 00:50:06.648000 UTC 
+       7 | sa-east      | SA East      | 2026-08-05 00:50:06.648000 UTC 
+       8 | af-south     | AF South     | 2026-08-05 00:50:06.648000 UTC 
+(8 rows)
+
+=== row count ===
+"8"
+
+=== snapshot history (proves this landed as a real Iceberg commit on main, not a duckdb/dev artifact) ===
+       made_current_at       |     snapshot_id     | parent_id | is_current_ancestor 
+-----------------------------+---------------------+-----------+---------------------
+ 2026-08-05 00:50:06.883 UTC | 7624856498538845792 |      NULL | true                
+(1 row)

@@ -1,0 +1,24 @@
+=== main branch refs after the clean WAP run (confirm branch is gone) ===
+{
+    "token": null,
+    "references": [
+        {
+            "type": "BRANCH",
+            "name": "main",
+            "hash": "9522c1eb08e08ce0f15431253ce6e69a59d568c35ab688a990c6772b7dac301b"
+        }
+    ],
+    "hasMore": false
+}
+
+=== schemas visible on the main-scoped iceberg catalog after the clean WAP run ===
+"_wap_bootstrap"
+"bronze"
+"dev"
+"dev_dimensions"
+"dev_facts"
+"dev_silver"
+"dev_staging"
+"dev_wap_demo"
+"information_schema"
+"system"

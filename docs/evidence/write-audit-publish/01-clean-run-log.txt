@@ -1,0 +1,90 @@
+[2m2026-08-05T00:50:01.487774Z[0m [[32m[1minfo     [0m] [1mwap run starting              [0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:01.564723Z[0m [[32m[1minfo     [0m] [1mread main HEAD                [0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mmain_hash[0m=[35mc51ba2d7bc6313821a228d42d885d6e35db44aaab3d733d64b4abbb106c6eabb[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:01.611752Z[0m [[32m[1minfo     [0m] [1mbranch created                [0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mbranch_hash[0m=[35mc51ba2d7bc6313821a228d42d885d6e35db44aaab3d733d64b4abbb106c6eabb[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:02.387835Z[0m [[32m[1minfo     [0m] [1mtrino catalog registered for branch[0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:02.387981Z[0m [[32m[1minfo     [0m] [1mrunning dbt                   [0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m [36msubcommand[0m=[35mrun[0m
+[0m00:50:03  Running with dbt=1.10.22
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+[0m00:50:03  Registered adapter: trino=1.10.3
+[0m00:50:03  Unable to do partial parsing because config vars, config profile, or config target have changed
+[0m00:50:03  Unable to do partial parsing because profile has changed
+[0m00:50:05  [[33mWARNING[0m][MissingArgumentsPropertyInGenericTestDeprecation]: Deprecated
+functionality
+Found top-level arguments to test `dbt_utils.mutually_exclusive_ranges`.
+Arguments to generic tests should be nested under the `arguments` property.`
+[0m00:50:05  Found 68 models, 286 data tests, 2 operations, 9 sources, 2020 macros
+[0m00:50:05  
+[0m00:50:05  Concurrency: 4 threads (target='trino')
+[0m00:50:05  
+[0m00:50:06  [[33mWARNING[0m]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+[0m00:50:06  Elementary: Runtime data: {"config": {"disable_run_results": true, "disable_freshness_results": true, "disable_tests_results": true, "disable_dbt_artifacts_autoupload": true, "disable_dbt_invocation_autoupload": true}, "dbt_version": "1.10.22", "elementary_version": "0.25.1", "database": "iceberg_wap_20260805t005001z_8664cb4f", "schema": "dev"}
+[0m00:50:06  1 of 1 START hook: elementary.on-run-start.0 ................................... [RUN]
+[0m00:50:06  1 of 1 OK hook: elementary.on-run-start.0 ...................................... [[32mOK[0m in 0.01s]
+[0m00:50:06  
+[0m00:50:06  1 of 1 START sql table model dev_wap_demo.wap_demo_dim ......................... [RUN]
+[0m00:50:06  1 of 1 OK created sql table model dev_wap_demo.wap_demo_dim .................... [[32mCREATE TABLE (8 rows)[0m in 0.33s]
+[0m00:50:06  
+[0m00:50:06  1 of 1 START hook: elementary.on-run-end.0 ..................................... [RUN]
+[0m00:50:06  1 of 1 OK hook: elementary.on-run-end.0 ........................................ [[32mOK[0m in 0.01s]
+[0m00:50:06  
+[0m00:50:06  Finished running 2 project hooks, 1 table model in 0 hours 0 minutes and 0.97 seconds (0.97s).
+[0m00:50:07  
+[0m00:50:07  [32mCompleted successfully[0m
+[0m00:50:07  
+[0m00:50:07  Done. PASS=3 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=3
+[0m00:50:07  [[33mWARNING[0m][DeprecationsSummary]: Deprecated functionality
+Summary of encountered deprecations:
+- MissingArgumentsPropertyInGenericTestDeprecation: 34 occurrences
+To see all deprecation instances instead of just the first occurrence of each,
+run command again with the `--show-all-deprecations` flag. You may also need to
+run with `--no-partial-parse` as some deprecations are only encountered during
+parsing.
+[2m2026-08-05T00:50:07.401380Z[0m [[32m[1minfo     [0m] [1mdbt run passed, write stage complete[0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:07.401826Z[0m [[32m[1minfo     [0m] [1mrunning dbt                   [0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m [36msubcommand[0m=[35mtest[0m
+[0m00:50:08  Running with dbt=1.10.22
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+[0m00:50:08  Registered adapter: trino=1.10.3
+[0m00:50:08  Found 68 models, 286 data tests, 2 operations, 9 sources, 2020 macros
+[0m00:50:08  
+[0m00:50:08  Concurrency: 4 threads (target='trino')
+[0m00:50:08  
+[0m00:50:08  [[33mWARNING[0m]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+[0m00:50:08  [[33mWARNING[0m]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+[0m00:50:08  [[33mWARNING[0m]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+[0m00:50:08  [[33mWARNING[0m]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+[0m00:50:09  Elementary: Runtime data: {"config": {"disable_run_results": true, "disable_freshness_results": true, "disable_tests_results": true, "disable_dbt_artifacts_autoupload": true, "disable_dbt_invocation_autoupload": true}, "dbt_version": "1.10.22", "elementary_version": "0.25.1", "database": "iceberg_wap_20260805t005001z_8664cb4f", "schema": "dev"}
+[0m00:50:09  1 of 1 START hook: elementary.on-run-start.0 ................................... [RUN]
+[0m00:50:09  1 of 1 OK hook: elementary.on-run-start.0 ...................................... [[32mOK[0m in 0.58s]
+[0m00:50:09  
+[0m00:50:09  2 of 3 START test not_null_wap_demo_dim_demo_id ................................ [RUN]
+[0m00:50:09  3 of 3 START test unique_wap_demo_dim_demo_id .................................. [RUN]
+[0m00:50:09  1 of 3 START test not_null_wap_demo_dim_demo_code .............................. [RUN]
+[0m00:50:09  1 of 3 PASS not_null_wap_demo_dim_demo_code .................................... [[32mPASS[0m in 0.15s]
+[0m00:50:09  2 of 3 PASS not_null_wap_demo_dim_demo_id ...................................... [[32mPASS[0m in 0.15s]
+[0m00:50:09  3 of 3 PASS unique_wap_demo_dim_demo_id ........................................ [[32mPASS[0m in 0.15s]
+[0m00:50:09  
+[0m00:50:09  1 of 1 START hook: elementary.on-run-end.0 ..................................... [RUN]
+[0m00:50:09  1 of 1 OK hook: elementary.on-run-end.0 ........................................ [[32mOK[0m in 0.01s]
+[0m00:50:09  
+[0m00:50:09  Finished running 2 project hooks, 3 data tests in 0 hours 0 minutes and 1.20 seconds (1.20s).
+[0m00:50:09  
+[0m00:50:09  [32mCompleted successfully[0m
+[0m00:50:09  
+[0m00:50:09  Done. PASS=5 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=5
+[2m2026-08-05T00:50:10.221218Z[0m [[32m[1minfo     [0m] [1mdbt test passed, audit stage complete (quality gate cleared)[0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:10.403007Z[0m [[32m[1minfo     [0m] [1mmerged to main, publish stage complete[0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mresultant_main_hash[0m=[35m9522c1eb08e08ce0f15431253ce6e69a59d568c35ab688a990c6772b7dac301b[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:10.417503Z[0m [[32m[1minfo     [0m] [1mwap run succeeded, branch deleted[0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+[2m2026-08-05T00:50:10.435519Z[0m [[32m[1minfo     [0m] [1mtrino catalog deregistered    [0m [36mbranch[0m=[35mwap_20260805t005001z_8664cb4f[0m [36mcatalog[0m=[35miceberg_wap_20260805t005001z_8664cb4f[0m [36mrun_id[0m=[35m20260805t005001z_8664cb4f[0m [36mselect[0m=[35mwap_demo_dim[0m
+EXIT_CODE=0
