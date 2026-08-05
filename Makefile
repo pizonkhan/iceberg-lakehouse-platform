@@ -56,8 +56,14 @@ test: deps
 	uv run pytest tests/unit tests/integration
 	$(DBT) test $(DBT_DIRS) --target trino
 
-docs:
-	@echo "make docs: not implemented yet (lands in the documentation phase)" && exit 1
+# dbt docs generate writes target/index.html, target/manifest.json and
+# target/catalog.json. catalog.json comes from querying the live warehouse's
+# information_schema for each model's actual columns and types, so this
+# assumes `make build` has already materialized dev_staging/dev_silver/
+# dev_dimensions/dev_facts on the trino target, the same assumption `make
+# test` makes; it does not build anything itself.
+docs: deps
+	$(DBT) docs generate $(DBT_DIRS) --target trino
 
 clean:
 	$(COMPOSE) down -v
