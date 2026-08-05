@@ -1,0 +1,169 @@
+/Users/pizon/Projects/iceberg-lakehouse-platform/.venv/lib/python3.13/site-packages/click/core.py:907: SupersessionWarning: Function `asset_materialize_command` is superseded and its usage is discouraged. Use 'dg launch --assets <selection>' instead.
+  return callback(*args, **kwargs)
+2026-08-04 19:59:46 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30490 - RUN_START - Started execution of run for "__ASSET_JOB".
+2026-08-04 19:59:46 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30490 - ENGINE_EVENT - Executing steps using multiprocess executor: parent process (pid: 30490)
+2026-08-04 19:59:46 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30490 - lakehouse_dbt_assets - STEP_WORKER_STARTING - Launching subprocess for "lakehouse_dbt_assets".
+2026-08-04 19:59:47 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_WORKER_STARTED - Executing step "lakehouse_dbt_assets" in subprocess.
+2026-08-04 19:59:48 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - RESOURCE_INIT_STARTED - Starting initialization of resources [dbt, io_manager].
+2026-08-04 19:59:48 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - RESOURCE_INIT_SUCCESS - Finished initialization of resources [dbt, io_manager].
+2026-08-04 19:59:48 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - LOGS_CAPTURED - Capturing logs for process (pid: 30566).
+2026-08-04 19:59:48 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_START - Started execution of step "lakehouse_dbt_assets".
+2026-08-04 19:59:48 -0400 - dagster - INFO - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - A dbt subsetted execution is being performed. Overriding default dbt selection arguments `['--select', 'resource_type:model,package:lakehouse']` with arguments: `['lakehouse.marts.dimensions.dim_subscriber']`.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+2026-08-04 19:59:49 -0400 - dagster - INFO - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Copying `/Users/pizon/Projects/iceberg-lakehouse-platform/transform/lakehouse/target/partial_parse.msgpack` to `/Users/pizon/Projects/iceberg-lakehouse-platform/transform/lakehouse/target/lakehouse_dbt_assets-cf5e580-7c9905b/partial_parse.msgpack` to take advantage of partial parsing.
+2026-08-04 19:59:49 -0400 - dagster - INFO - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Running dbt command: `dbt build --target trino --select lakehouse.marts.dimensions.dim_subscriber`.
+Running with dbt=1.10.22
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+Registered adapter: trino=1.10.3
+Unable to do partial parsing because a project config has changed
+[WARNING][MissingArgumentsPropertyInGenericTestDeprecation]: Deprecated
+functionality
+Found top-level arguments to test `dbt_utils.mutually_exclusive_ranges`.
+Arguments to generic tests should be nested under the `arguments` property.`
+Found 68 models, 286 data tests, 2 operations, 9 sources, 2020 macros
+
+Concurrency: 4 threads (target='trino')
+
+[WARNING]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+Elementary: Runtime data: {"config": {}, "dbt_version": "1.10.22", "elementary_version": "0.25.1", "database": "iceberg", "schema": "dev"}
+1 of 1 START hook: elementary.on-run-start.0 ................................... [RUN]
+1 of 1 OK hook: elementary.on-run-start.0 ...................................... [OK in 0.05s]
+
+1 of 24 START sql table model dev_dimensions.dim_subscriber .................... [RUN]
+1 of 24 OK created sql table model dev_dimensions.dim_subscriber ............... [CREATE TABLE (125_616 rows) in 25.71s]
+2 of 24 START test dbt_expectations_expect_column_distinct_count_to_equal_other_table_dim_subscriber_subscriber_id__subscriber_id__ref_dim_subscriber___is_current  [RUN]
+3 of 24 START test dbt_utils_mutually_exclusive_ranges_dim_subscriber_not_allowed__effective_from__subscriber_id__effective_to__False  [RUN]
+5 of 24 START test dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id__effective_from  [RUN]
+4 of 24 START test dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id  [RUN]
+4 of 24 PASS dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id  [PASS in 1.39s]
+6 of 24 START test not_null_dim_subscriber_current_plan_tier ................... [RUN]
+2 of 24 PASS dbt_expectations_expect_column_distinct_count_to_equal_other_table_dim_subscriber_subscriber_id__subscriber_id__ref_dim_subscriber___is_current  [PASS in 1.66s]
+7 of 24 START test not_null_dim_subscriber_effective_from ...................... [RUN]
+5 of 24 PASS dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id__effective_from  [PASS in 1.75s]
+8 of 24 START test not_null_dim_subscriber_effective_to ........................ [RUN]
+6 of 24 PASS not_null_dim_subscriber_current_plan_tier ......................... [PASS in 0.47s]
+9 of 24 START test not_null_dim_subscriber_is_current .......................... [RUN]
+7 of 24 PASS not_null_dim_subscriber_effective_from ............................ [PASS in 0.28s]
+10 of 24 START test not_null_dim_subscriber_is_inferred ........................ [RUN]
+8 of 24 PASS not_null_dim_subscriber_effective_to .............................. [PASS in 0.52s]
+11 of 24 START test not_null_dim_subscriber_loaded_at .......................... [RUN]
+9 of 24 PASS not_null_dim_subscriber_is_current ................................ [PASS in 0.47s]
+12 of 24 START test not_null_dim_subscriber_plan_tier .......................... [RUN]
+3 of 24 PASS dbt_utils_mutually_exclusive_ranges_dim_subscriber_not_allowed__effective_from__subscriber_id__effective_to__False  [PASS in 2.37s]
+13 of 24 START test not_null_dim_subscriber_row_hash ........................... [RUN]
+10 of 24 PASS not_null_dim_subscriber_is_inferred .............................. [PASS in 0.53s]
+14 of 24 START test not_null_dim_subscriber_scd_version ........................ [RUN]
+12 of 24 PASS not_null_dim_subscriber_plan_tier ................................ [PASS in 0.32s]
+15 of 24 START test not_null_dim_subscriber_status ............................. [RUN]
+11 of 24 PASS not_null_dim_subscriber_loaded_at ................................ [PASS in 0.40s]
+16 of 24 START test not_null_dim_subscriber_subscriber_id ...................... [RUN]
+13 of 24 PASS not_null_dim_subscriber_row_hash ................................. [PASS in 0.33s]
+17 of 24 START test not_null_dim_subscriber_subscriber_sk ...................... [RUN]
+14 of 24 PASS not_null_dim_subscriber_scd_version .............................. [PASS in 0.32s]
+18 of 24 START test unique_dim_subscriber_subscriber_sk ........................ [RUN]
+16 of 24 PASS not_null_dim_subscriber_subscriber_id ............................ [PASS in 0.67s]
+15 of 24 PASS not_null_dim_subscriber_status ................................... [PASS in 0.71s]
+17 of 24 PASS not_null_dim_subscriber_subscriber_sk ............................ [PASS in 0.70s]
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber" of type "Nothing". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_MATERIALIZATION - Materialized value dimensions dim_subscriber.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_dbt_expectations_expect_column_distinct_count_to_equal_other_table_dim_subscriber_subscriber_id__subscriber_id__ref_dim_subscriber___is_current" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'dbt_expectations_expect_column_distinct_count_to_equal_other_table_dim_subscriber_subscriber_id__subscriber_id__ref_dim_subscriber___is_current' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id__effective_from" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'dbt_utils_unique_combination_of_columns_dim_subscriber_subscriber_id__effective_from' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_current_plan_tier" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_current_plan_tier' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_effective_from" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_effective_from' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_effective_to" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_effective_to' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_is_current" of type "Any". (Type check passed).
+2026-08-04 20:00:23 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_is_current' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_dbt_utils_mutually_exclusive_ranges_dim_subscriber_not_allowed__effective_from__subscriber_id__effective_to__False" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'dbt_utils_mutually_exclusive_ranges_dim_subscriber_not_allowed__effective_from__subscriber_id__effective_to__False' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_is_inferred" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_is_inferred' on 'dimensions/dim_subscriber' passed.
+18 of 24 PASS unique_dim_subscriber_subscriber_sk .............................. [PASS in 2.25s]
+19 of 24 START test dbt_utils_expression_is_true_fct_daily_subscription_snapshot_exists_select_1_from_ref_dim_subscriber_as_ds_where_ds_subscriber_sk_dbt_subquery_subscriber_sk_and_ds_is_current_and_ds_status_dbt_subquery_subscription_status_  [RUN]
+20 of 24 START test relationships_fct_billing_transactions_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [RUN]
+21 of 24 START test relationships_fct_daily_subscription_snapshot_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [RUN]
+22 of 24 START test relationships_fct_playback_events_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [RUN]
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_plan_tier" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_plan_tier' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_loaded_at" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_loaded_at' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_row_hash" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_row_hash' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_scd_version" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_scd_version' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_subscriber_id" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_subscriber_id' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_status" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_status' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_not_null_dim_subscriber_subscriber_sk" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_subscriber_subscriber_sk' on 'dimensions/dim_subscriber' passed.
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_subscriber_unique_dim_subscriber_subscriber_sk" of type "Any". (Type check passed).
+2026-08-04 20:00:24 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'unique_dim_subscriber_subscriber_sk' on 'dimensions/dim_subscriber' passed.
+20 of 24 PASS relationships_fct_billing_transactions_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [PASS in 3.39s]
+2026-08-04 20:00:28 -0400 - dagster - WARNING - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `relationships_fct_billing_transactions_subscriber_sk__subscriber_sk__ref_dim_subscriber_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+23 of 24 START test relationships_fct_signup_funnel_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [RUN]
+2026-08-04 20:00:30 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 20:00:30 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+23 of 24 PASS relationships_fct_signup_funnel_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [PASS in 4.65s]
+2026-08-04 20:00:32 -0400 - dagster - WARNING - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `relationships_fct_signup_funnel_subscriber_sk__subscriber_sk__ref_dim_subscriber_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+24 of 24 START test relationships_fct_watchlist_adds_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [RUN]
+2026-08-04 20:00:33 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 20:00:33 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+24 of 24 PASS relationships_fct_watchlist_adds_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [PASS in 3.06s]
+2026-08-04 20:00:35 -0400 - dagster - WARNING - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `relationships_fct_watchlist_adds_subscriber_sk__subscriber_sk__ref_dim_subscriber_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+2026-08-04 20:00:37 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 20:00:37 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+19 of 24 PASS dbt_utils_expression_is_true_fct_daily_subscription_snapshot_exists_select_1_from_ref_dim_subscriber_as_ds_where_ds_subscriber_sk_dbt_subquery_subscriber_sk_and_ds_is_current_and_ds_status_dbt_subquery_subscription_status_  [PASS in 20.44s]
+2026-08-04 20:00:45 -0400 - dagster - WARNING - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `dbt_utils_expression_is_true_fct_daily_subscription_snapshot_exists_select_1_from_ref_dim_subscriber_as_ds_where_ds_subscriber_sk_dbt_subquery_subscriber_sk_and_ds_is_current_and_ds_status_dbt_subquery_subscription_status_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+2026-08-04 20:00:45 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 20:00:45 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+21 of 24 PASS relationships_fct_daily_subscription_snapshot_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [PASS in 31.71s]
+2026-08-04 20:00:56 -0400 - dagster - WARNING - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `relationships_fct_daily_subscription_snapshot_subscriber_sk__subscriber_sk__ref_dim_subscriber_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+2026-08-04 20:00:57 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 20:00:57 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+22 of 24 PASS relationships_fct_playback_events_subscriber_sk__subscriber_sk__ref_dim_subscriber_  [PASS in 66.48s]
+2026-08-04 20:01:31 -0400 - dagster - WARNING - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `relationships_fct_playback_events_subscriber_sk__subscriber_sk__ref_dim_subscriber_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+
+2026-08-04 20:01:31 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 20:01:31 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+1 of 1 START hook: elementary.on-run-end.0 ..................................... [RUN]
+1 of 1 OK hook: elementary.on-run-end.0 ........................................ [OK in 8.73s]
+
+Finished running 2 project hooks, 1 table model, 23 data tests in 0 hours 1 minutes and 46.59 seconds (106.59s).
+
+Completed successfully
+
+Done. PASS=26 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=26
+[WARNING][DeprecationsSummary]: Deprecated functionality
+Summary of encountered deprecations:
+- MissingArgumentsPropertyInGenericTestDeprecation: 34 occurrences
+To see all deprecation instances instead of just the first occurrence of each,
+run command again with the `--show-all-deprecations` flag. You may also need to
+run with `--no-partial-parse` as some deprecations are only encountered during
+parsing.
+2026-08-04 20:01:40 -0400 - dagster - INFO - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - lakehouse_dbt_assets - Finished dbt command: `dbt build --target trino --select lakehouse.marts.dimensions.dim_subscriber`.
+2026-08-04 20:01:40 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30566 - lakehouse_dbt_assets - STEP_SUCCESS - Finished execution of step "lakehouse_dbt_assets" in 1m52s.
+2026-08-04 20:01:41 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30490 - ENGINE_EVENT - Multiprocess executor: parent process exiting after 1m55s (pid: 30490)
+2026-08-04 20:01:41 -0400 - dagster - DEBUG - __ASSET_JOB - cf5e580b-fbe3-4797-8312-ab29fefaabb8 - 30490 - RUN_SUCCESS - Finished execution of run for "__ASSET_JOB".

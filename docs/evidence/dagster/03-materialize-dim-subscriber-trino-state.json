@@ -1,0 +1,13 @@
+{
+  "table": "iceberg.dev_dimensions.dim_subscriber",
+  "materialized_via": "dagster asset materialize -m orchestration.definitions --select dimensions/dim_subscriber",
+  "dbt_command_dagster_ran": "dbt build --target trino --select lakehouse.marts.dimensions.dim_subscriber",
+  "before_row_count": 125616,
+  "before_max_loaded_at": "2026-08-04T13:15:56.788",
+  "after_row_count": 125616,
+  "after_max_loaded_at": "2026-08-04T19:59:53.621",
+  "dbt_tests_run": 23,
+  "dbt_tests_passed": 23,
+  "run_duration_seconds": 106.59,
+  "note": "row count identical before/after (idempotent full-refresh Type 6 SCD rebuild against unchanged silver_subscriber_events); loaded_at advanced to the Dagster-driven build time; all 23 dbt data tests (uniqueness, not-null, relationships to fct_playback_events/fct_billing_transactions/fct_watchlist_adds) passed as Dagster asset checks/observations in the same run. See 04-column-lineage-dim-subscriber.json for the column-level lineage captured from this same materialization."
+}

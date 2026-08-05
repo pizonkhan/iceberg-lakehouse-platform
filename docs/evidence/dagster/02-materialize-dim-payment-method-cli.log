@@ -1,0 +1,102 @@
+/Users/pizon/Projects/iceberg-lakehouse-platform/.venv/lib/python3.13/site-packages/click/core.py:907: SupersessionWarning: Function `asset_materialize_command` is superseded and its usage is discouraged. Use 'dg launch --assets <selection>' instead.
+  return callback(*args, **kwargs)
+2026-08-04 19:58:59 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28565 - RUN_START - Started execution of run for "__ASSET_JOB".
+2026-08-04 19:58:59 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28565 - ENGINE_EVENT - Executing steps using multiprocess executor: parent process (pid: 28565)
+2026-08-04 19:58:59 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28565 - lakehouse_dbt_assets - STEP_WORKER_STARTING - Launching subprocess for "lakehouse_dbt_assets".
+2026-08-04 19:58:59 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_WORKER_STARTED - Executing step "lakehouse_dbt_assets" in subprocess.
+2026-08-04 19:59:00 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - RESOURCE_INIT_STARTED - Starting initialization of resources [dbt, io_manager].
+2026-08-04 19:59:00 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - RESOURCE_INIT_SUCCESS - Finished initialization of resources [dbt, io_manager].
+2026-08-04 19:59:00 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - LOGS_CAPTURED - Capturing logs for process (pid: 28635).
+2026-08-04 19:59:00 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_START - Started execution of step "lakehouse_dbt_assets".
+2026-08-04 19:59:00 -0400 - dagster - INFO - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - lakehouse_dbt_assets - A dbt subsetted execution is being performed. Overriding default dbt selection arguments `['--select', 'resource_type:model,package:lakehouse']` with arguments: `['lakehouse.marts.dimensions.dim_payment_method']`.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+2026-08-04 19:59:02 -0400 - dagster - INFO - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - lakehouse_dbt_assets - Copying `/Users/pizon/Projects/iceberg-lakehouse-platform/transform/lakehouse/target/partial_parse.msgpack` to `/Users/pizon/Projects/iceberg-lakehouse-platform/transform/lakehouse/target/lakehouse_dbt_assets-6ba970a-d7309f8/partial_parse.msgpack` to take advantage of partial parsing.
+2026-08-04 19:59:02 -0400 - dagster - INFO - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - lakehouse_dbt_assets - Running dbt command: `dbt build --target trino --select lakehouse.marts.dimensions.dim_payment_method`.
+Running with dbt=1.10.22
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+INFO:trino.auth:keyring module not found. OAuth2 token will not be stored in keyring.
+Registered adapter: trino=1.10.3
+Unable to do partial parsing because a project config has changed
+[WARNING][MissingArgumentsPropertyInGenericTestDeprecation]: Deprecated
+functionality
+Found top-level arguments to test `dbt_utils.mutually_exclusive_ranges`.
+Arguments to generic tests should be nested under the `arguments` property.`
+Found 68 models, 286 data tests, 2 operations, 9 sources, 2020 macros
+
+Concurrency: 4 threads (target='trino')
+
+[WARNING]: SSL certificate validation is disabled by default. It is legacy behavior which will be changed in future releases. It is strongly advised to enable `require_certificate_validation` flag or explicitly set `cert` configuration to `True` for security reasons. You may receive an error after that if your SSL setup is incorrect.
+You may opt into the new behavior sooner by setting `flags.require_certificate_validation` to `True` in `dbt_project.yml`.
+Visit https://docs.getdbt.com/reference/global-configs/behavior-changes for more information.
+Elementary: Runtime data: {"config": {}, "dbt_version": "1.10.22", "elementary_version": "0.25.1", "database": "iceberg", "schema": "dev"}
+1 of 1 START hook: elementary.on-run-start.0 ................................... [RUN]
+1 of 1 OK hook: elementary.on-run-start.0 ...................................... [OK in 0.06s]
+
+1 of 11 START sql table model dev_dimensions.dim_payment_method ................ [RUN]
+1 of 11 OK created sql table model dev_dimensions.dim_payment_method ........... [CREATE TABLE (33 rows) in 0.42s]
+5 of 11 START test not_null_dim_payment_method_is_promo_applied ................ [RUN]
+3 of 11 START test dbt_utils_unique_combination_of_columns_dim_payment_method_payment_type__is_promo_applied__is_retry__is_autopay  [RUN]
+4 of 11 START test not_null_dim_payment_method_is_autopay ...................... [RUN]
+2 of 11 START test accepted_values_dim_payment_method_payment_type__card__paypal__gift_card__carrier_billing__Unknown  [RUN]
+4 of 11 PASS not_null_dim_payment_method_is_autopay ............................ [PASS in 0.18s]
+6 of 11 START test not_null_dim_payment_method_is_retry ........................ [RUN]
+5 of 11 PASS not_null_dim_payment_method_is_promo_applied ...................... [PASS in 0.19s]
+7 of 11 START test not_null_dim_payment_method_loaded_at ....................... [RUN]
+2 of 11 PASS accepted_values_dim_payment_method_payment_type__card__paypal__gift_card__carrier_billing__Unknown  [PASS in 0.21s]
+8 of 11 START test not_null_dim_payment_method_payment_method_sk ............... [RUN]
+3 of 11 PASS dbt_utils_unique_combination_of_columns_dim_payment_method_payment_type__is_promo_applied__is_retry__is_autopay  [PASS in 0.23s]
+9 of 11 START test not_null_dim_payment_method_payment_type .................... [RUN]
+7 of 11 PASS not_null_dim_payment_method_loaded_at ............................. [PASS in 0.14s]
+10 of 11 START test unique_dim_payment_method_payment_method_sk ................ [RUN]
+9 of 11 PASS not_null_dim_payment_method_payment_type .......................... [PASS in 0.13s]
+8 of 11 PASS not_null_dim_payment_method_payment_method_sk ..................... [PASS in 0.15s]
+6 of 11 PASS not_null_dim_payment_method_is_retry .............................. [PASS in 0.19s]
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method" of type "Nothing". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_MATERIALIZATION - Materialized value dimensions dim_payment_method.
+10 of 11 PASS unique_dim_payment_method_payment_method_sk ...................... [PASS in 0.31s]
+11 of 11 START test relationships_fct_billing_transactions_payment_method_sk__payment_method_sk__ref_dim_payment_method_  [RUN]
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_not_null_dim_payment_method_is_autopay" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_payment_method_is_autopay' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_not_null_dim_payment_method_is_promo_applied" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_payment_method_is_promo_applied' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_accepted_values_dim_payment_method_payment_type__card__paypal__gift_card__carrier_billing__Unknown" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'accepted_values_dim_payment_method_payment_type__card__paypal__gift_card__carrier_billing__Unknown' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_dbt_utils_unique_combination_of_columns_dim_payment_method_payment_type__is_promo_applied__is_retry__is_autopay" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'dbt_utils_unique_combination_of_columns_dim_payment_method_payment_type__is_promo_applied__is_retry__is_autopay' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_not_null_dim_payment_method_loaded_at" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_payment_method_loaded_at' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_not_null_dim_payment_method_payment_type" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_payment_method_payment_type' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_not_null_dim_payment_method_payment_method_sk" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_payment_method_payment_method_sk' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_not_null_dim_payment_method_is_retry" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'not_null_dim_payment_method_is_retry' on 'dimensions/dim_payment_method' passed.
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_OUTPUT - Yielded output "dimensions__dim_payment_method_unique_dim_payment_method_payment_method_sk" of type "Any". (Type check passed).
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_CHECK_EVALUATION - Asset check 'unique_dim_payment_method_payment_method_sk' on 'dimensions/dim_payment_method' passed.
+11 of 11 PASS relationships_fct_billing_transactions_payment_method_sk__payment_method_sk__ref_dim_payment_method_  [PASS in 0.32s]
+2026-08-04 19:59:07 -0400 - dagster - WARNING - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - lakehouse_dbt_assets - Logging an `AssetObservation` instead of an `AssetCheckResult` for dbt test `relationships_fct_billing_transactions_payment_method_sk__payment_method_sk__ref_dim_payment_method_`.
+
+This test was not included in Dagster's asset check selection, and was likely executed due to dbt indirect selection.
+
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+2026-08-04 19:59:07 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - ASSET_OBSERVATION - DagsterEventType.ASSET_OBSERVATION for step lakehouse_dbt_assets
+1 of 1 START hook: elementary.on-run-end.0 ..................................... [RUN]
+1 of 1 OK hook: elementary.on-run-end.0 ........................................ [OK in 2.41s]
+
+Finished running 2 project hooks, 1 table model, 10 data tests in 0 hours 0 minutes and 4.32 seconds (4.32s).
+
+Completed successfully
+
+Done. PASS=13 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=13
+[WARNING][DeprecationsSummary]: Deprecated functionality
+Summary of encountered deprecations:
+- MissingArgumentsPropertyInGenericTestDeprecation: 34 occurrences
+To see all deprecation instances instead of just the first occurrence of each,
+run command again with the `--show-all-deprecations` flag. You may also need to
+run with `--no-partial-parse` as some deprecations are only encountered during
+parsing.
+2026-08-04 19:59:10 -0400 - dagster - INFO - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - lakehouse_dbt_assets - Finished dbt command: `dbt build --target trino --select lakehouse.marts.dimensions.dim_payment_method`.
+2026-08-04 19:59:10 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28635 - lakehouse_dbt_assets - STEP_SUCCESS - Finished execution of step "lakehouse_dbt_assets" in 10.0s.
+2026-08-04 19:59:11 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28565 - ENGINE_EVENT - Multiprocess executor: parent process exiting after 12.08s (pid: 28565)
+2026-08-04 19:59:11 -0400 - dagster - DEBUG - __ASSET_JOB - 6ba970ab-effe-4242-96d0-f16a9b2b4e4e - 28565 - RUN_SUCCESS - Finished execution of run for "__ASSET_JOB".

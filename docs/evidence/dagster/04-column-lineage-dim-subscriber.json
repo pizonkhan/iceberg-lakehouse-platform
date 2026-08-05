@@ -1,0 +1,520 @@
+{
+  "data": {
+    "assetNodeOrError": {
+      "assetKey": {
+        "path": [
+          "dimensions",
+          "dim_subscriber"
+        ]
+      },
+      "assetMaterializations": [
+        {
+          "metadataEntries": [
+            {
+              "__typename": "FloatMetadataEntry",
+              "description": null,
+              "label": "Execution Duration"
+            },
+            {
+              "__typename": "TextMetadataEntry",
+              "description": null,
+              "label": "unique_id",
+              "text": "model.lakehouse.dim_subscriber"
+            },
+            {
+              "__typename": "TextMetadataEntry",
+              "description": null,
+              "label": "invocation_id",
+              "text": "4ddb419c-d76c-4719-9d6f-508130f8a9fa"
+            },
+            {
+              "__typename": "TableSchemaMetadataEntry",
+              "description": null,
+              "label": "dagster/column_schema",
+              "schema": {
+                "columns": [
+                  {
+                    "description": null,
+                    "name": "subscriber_sk",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "subscriber_id",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "email",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "display_name",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "country_code",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "acquisition_channel",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "signup_date",
+                    "type": "date"
+                  },
+                  {
+                    "description": null,
+                    "name": "plan_tier",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "status",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "current_plan_tier",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "previous_plan_tier",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "churn_date_key",
+                    "type": "integer"
+                  },
+                  {
+                    "description": null,
+                    "name": "effective_from",
+                    "type": "timestamp(6)"
+                  },
+                  {
+                    "description": null,
+                    "name": "effective_to",
+                    "type": "timestamp(6)"
+                  },
+                  {
+                    "description": null,
+                    "name": "is_current",
+                    "type": "boolean"
+                  },
+                  {
+                    "description": null,
+                    "name": "scd_version",
+                    "type": "bigint"
+                  },
+                  {
+                    "description": null,
+                    "name": "row_hash",
+                    "type": "varchar"
+                  },
+                  {
+                    "description": null,
+                    "name": "is_inferred",
+                    "type": "boolean"
+                  },
+                  {
+                    "description": null,
+                    "name": "loaded_at",
+                    "type": "timestamp(6)"
+                  }
+                ]
+              }
+            },
+            {
+              "__typename": "TableColumnLineageMetadataEntry",
+              "description": null,
+              "label": "dagster/column_lineage",
+              "lineage": [
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "acquisition_channel"
+                    }
+                  ],
+                  "columnName": "acquisition_channel"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "status"
+                    }
+                  ],
+                  "columnName": "churn_date_key"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "country_code"
+                    }
+                  ],
+                  "columnName": "country_code"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "plan_tier"
+                    }
+                  ],
+                  "columnName": "current_plan_tier"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "display_name"
+                    }
+                  ],
+                  "columnName": "display_name"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    }
+                  ],
+                  "columnName": "effective_from"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    }
+                  ],
+                  "columnName": "effective_to"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "email"
+                    }
+                  ],
+                  "columnName": "email"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    }
+                  ],
+                  "columnName": "is_current"
+                },
+                {
+                  "columnDeps": [],
+                  "columnName": "is_inferred"
+                },
+                {
+                  "columnDeps": [],
+                  "columnName": "loaded_at"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "plan_tier"
+                    }
+                  ],
+                  "columnName": "plan_tier"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "plan_tier"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    }
+                  ],
+                  "columnName": "previous_plan_tier"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "plan_tier"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "status"
+                    }
+                  ],
+                  "columnName": "row_hash"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    }
+                  ],
+                  "columnName": "scd_version"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "signup_date"
+                    }
+                  ],
+                  "columnName": "signup_date"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "status"
+                    }
+                  ],
+                  "columnName": "status"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_billing_ledger"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_playback_sessions"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_watchlist_adds"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    }
+                  ],
+                  "columnName": "subscriber_id"
+                },
+                {
+                  "columnDeps": [
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_billing_ledger"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_playback_sessions"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "changed_at"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_subscriber_events"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    },
+                    {
+                      "assetKey": {
+                        "path": [
+                          "silver",
+                          "silver_watchlist_adds"
+                        ]
+                      },
+                      "columnName": "subscriber_id"
+                    }
+                  ],
+                  "columnName": "subscriber_sk"
+                }
+              ]
+            }
+          ],
+          "runId": "cf5e580b-fbe3-4797-8312-ab29fefaabb8",
+          "timestamp": "1785888023843"
+        }
+      ]
+    }
+  }
+}

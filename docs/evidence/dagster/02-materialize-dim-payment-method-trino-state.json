@@ -1,0 +1,10 @@
+{
+  "table": "iceberg.dev_dimensions.dim_payment_method",
+  "materialized_via": "dagster asset materialize -m orchestration.definitions --select dimensions/dim_payment_method",
+  "dbt_command_dagster_ran": "dbt build --target trino --select lakehouse.marts.dimensions.dim_payment_method",
+  "before_row_count": 33,
+  "before_max_loaded_at": "2026-08-04T13:23:16.926",
+  "after_row_count": 33,
+  "after_max_loaded_at": "2026-08-04 19:59:06.243000",
+  "note": "row count identical before/after (idempotent full-refresh table materialization); loaded_at advanced to the exact time of the Dagster-driven build, confirming Dagster genuinely re-executed dbt build against live Trino rather than only visualizing existing state."
+}

@@ -1,0 +1,9 @@
+mkdir -p /Users/pizon/Projects/iceberg-lakehouse-platform/.dagster_home
+DAGSTER_HOME=/Users/pizon/Projects/iceberg-lakehouse-platform/.dagster_home uv run dagster dev -m orchestration.definitions
+/Users/pizon/Projects/iceberg-lakehouse-platform/.venv/lib/python3.13/site-packages/click/core.py:907: SupersessionWarning: Function `dev_command` is superseded and its usage is discouraged. Use 'dg dev' instead.
+  return callback(*args, **kwargs)
+2026-08-04 20:04:18 -0400 - dagster - INFO - Loaded environment variables from .env file: MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,MINIO_BUCKET,POSTGRES_USER,POSTGRES_PASSWORD,NESSIE_PORT,TRINO_PORT,MINIO_API_PORT,MINIO_CONSOLE_PORT
+2026-08-04 20:04:19 -0400 - dagster - INFO - Launching Dagster services...
+2026-08-04 20:04:21 -0400 - dagster.daemon - INFO - Instance is configured with the following daemons: ['AssetDaemon', 'BackfillDaemon', 'FreshnessDaemon', 'QueuedRunCoordinatorDaemon', 'SchedulerDaemon', 'SensorDaemon']
+2026-08-04 20:04:22 -0400 - dagster-webserver - INFO - Loaded environment variables from .env file: MINIO_ROOT_USER,MINIO_ROOT_PASSWORD,MINIO_BUCKET,POSTGRES_USER,POSTGRES_PASSWORD,NESSIE_PORT,TRINO_PORT,MINIO_API_PORT,MINIO_CONSOLE_PORT
+2026-08-04 20:04:22 -0400 - dagster-webserver - INFO - Serving dagster-webserver on http://127.0.0.1:3000 in process 42085
