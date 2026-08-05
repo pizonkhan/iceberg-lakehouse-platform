@@ -1,0 +1,13 @@
+Time travel and rollback demonstration summary
+================================================
+
+Branch: time_travel_demo (cut from main, never merged back)
+Table: time_travel_demo.demo_billing_batch
+
+hash_good: e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2 (5 rows, all positive amounts)
+hash_bad:  8f525054bf9d3c93ced40857190b83296f1460ce73f3ebccd873eff02e06b9ab (8 rows, 2 negative amounts, the bad load)
+
+Point-in-time query at time_travel_demo@e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2 returned 5 rows, all positive amounts: PASS
+Live query before rollback returned 8 rows, including negative amounts: PASS
+Live query after rollback returned 5 rows, all positive amounts: PASS
+hash_bad still reachable from branch HEAD after rollback: False (expected: False)

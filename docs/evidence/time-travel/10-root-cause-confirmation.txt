@@ -1,0 +1,47 @@
+Direct citation, not narrated. Source: projectnessie/nessie, site/docs/guides/iceberg-rest.md
+(main branch), fetched 2026-08-05. URL:
+https://github.com/projectnessie/nessie/blob/main/site/docs/guides/iceberg-rest.md
+
+Quote:
+    "To retain Nessie's consistency and cross-branch/tag isolation guarantees, we
+    have deliberately chosen to only return the state of a table or view as a
+    _single_ snapshot in Iceberg."
+
+The same page documents the intended replacement for Iceberg-native snapshot time
+travel: querying a table through a ref string built from a branch or tag name, an
+optional Nessie commit hash after @, and/or an ISO-8601 timestamp after #, for example
+`my_table@my_branch#2024-07-01T00:00:00Z`. This project's own live testing (this
+directory's evidence, plus an ad hoc check recorded below) confirms both forms work
+against Nessie 0.108.4:
+
+    - branch@hash (used throughout this demonstration): GET
+      /iceberg/time_travel_demo@<hash>/v1/config returns 200 with the hash echoed
+      back in the resolved prefix.
+    - bare hash with no branch name: GET /iceberg/<hash>/v1/config also returns 200,
+      confirmed live, not used in this demonstration in favor of the more readable
+      branch@hash form.
+    - branch#timestamp: GET /iceberg/time_travel_demo%232026-08-05T04%3A33%3A06.50Z/v1/config
+      (URL-encoded #) also returns 200 with the timestamp echoed back, confirmed live
+      as syntactically valid though not exercised end-to-end with a query in this
+      demonstration (the @hash form already proves the point-in-time query mechanism;
+      building a second full demo around timestamp resolution specifically was judged
+      not worth the added evidence-capture surface for the same underlying mechanism).
+
+This resolves the three hypotheses the original open-questions.md entry (2026-08-05 red
+team pass, part 3) left unconfirmed about why no metadata.json in this stack chains to a
+previous one:
+
+    (a) inherent to how Nessie's Iceberg REST-catalog bridge materializes metadata.json
+        per commit: CONFIRMED, this is the deliberate design documented above.
+    (b) a docker-compose.yml configuration this project is missing: RULED OUT, no
+        config flag controls this behavior; it is unconditional in Nessie's REST
+        catalog implementation, not a tunable.
+    (c) specific to the dbt-trino merge strategy's write path: RULED OUT, this
+        directory's own 04-nessie-history-before-rollback.json shows the identical
+        no-parent-chain pattern (each commit's operations block points at a distinct
+        00000-<uuid>.metadata.json with no previous-metadata-log entry) from a plain
+        Trino INSERT, not a dbt MERGE. The schema-evolution work package's own
+        00-setup-snapshots.json (docs/evidence/schema-evolution/) independently shows
+        the same thing: two plain Trino INSERT ... SELECT statements against
+        demo_billing_events produced exactly one row in $snapshots with parent_id
+        null, not two chained snapshots.

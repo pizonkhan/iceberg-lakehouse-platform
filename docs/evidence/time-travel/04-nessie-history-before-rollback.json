@@ -1,0 +1,83 @@
+[
+  {
+    "hash": "8f525054bf9d3c93ced40857190b83296f1460ce73f3ebccd873eff02e06b9ab",
+    "message": "Update ICEBERG_TABLE time_travel_demo.demo_billing_batch",
+    "commit_time": "2026-08-05T04:33:06.615474426Z",
+    "parent_hash": "e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2",
+    "operations": [
+      {
+        "type": "PUT",
+        "key": {
+          "elements": [
+            "time_travel_demo",
+            "demo_billing_batch"
+          ]
+        },
+        "content": {
+          "type": "ICEBERG_TABLE",
+          "id": "e9c358f3-ab28-4e54-9def-fde885facfaf",
+          "metadataLocation": "s3://warehouse/time_travel_demo/demo_billing_batch_a2a989cc-58ec-43ed-b4f4-b005776ed4af/metadata/00000-91e813ec-bf83-4392-9ef8-4eabdb16bf76.metadata.json",
+          "snapshotId": 5401526299539370115,
+          "schemaId": 0,
+          "specId": 0,
+          "sortOrderId": 0
+        },
+        "documentation": null
+      }
+    ]
+  },
+  {
+    "hash": "e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2",
+    "message": "Update ICEBERG_TABLE time_travel_demo.demo_billing_batch",
+    "commit_time": "2026-08-05T04:33:06.488059010Z",
+    "parent_hash": "ed744376cf9e2d935e89d6ffeaf2486175d264c103e6e014812e25cc20dff5ad",
+    "operations": [
+      {
+        "type": "PUT",
+        "key": {
+          "elements": [
+            "time_travel_demo",
+            "demo_billing_batch"
+          ]
+        },
+        "content": {
+          "type": "ICEBERG_TABLE",
+          "id": "e9c358f3-ab28-4e54-9def-fde885facfaf",
+          "metadataLocation": "s3://warehouse/time_travel_demo/demo_billing_batch_a2a989cc-58ec-43ed-b4f4-b005776ed4af/metadata/00000-77b4c4c9-2aa4-4743-abd6-a494349f31cc.metadata.json",
+          "snapshotId": 9033693683403433912,
+          "schemaId": 0,
+          "specId": 0,
+          "sortOrderId": 0
+        },
+        "documentation": null
+      }
+    ]
+  },
+  {
+    "hash": "ed744376cf9e2d935e89d6ffeaf2486175d264c103e6e014812e25cc20dff5ad",
+    "message": "Create ICEBERG_TABLE time_travel_demo.demo_billing_batch",
+    "commit_time": "2026-08-05T04:33:06.283384635Z",
+    "parent_hash": "bb057440f5d2796970443bc8b78b18a26bc1e16131b699819798e51407d2face",
+    "operations": [
+      {
+        "type": "PUT",
+        "key": {
+          "elements": [
+            "time_travel_demo",
+            "demo_billing_batch"
+          ]
+        },
+        "content": {
+          "type": "ICEBERG_TABLE",
+          "id": "e9c358f3-ab28-4e54-9def-fde885facfaf",
+          "metadataLocation": "s3://warehouse/time_travel_demo/demo_billing_batch_a2a989cc-58ec-43ed-b4f4-b005776ed4af/metadata/00000-29185e40-9ae5-439a-9527-5847d971f264.metadata.json",
+          "snapshotId": 8921230551719593579,
+          "schemaId": 0,
+          "specId": 0,
+          "sortOrderId": 0
+        },
+        "documentation": null
+      }
+    ]
+  }
+]

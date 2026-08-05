@@ -1,0 +1,4 @@
+branch: time_travel_demo
+main HEAD at branch creation: 2da700d70f1ec8d5b94bc00145230186f91f11b414eb8e31a204631f014377d4
+hash_good (after commit 1, good batch, 5 rows): e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2
+hash_bad  (after commit 2, bad batch, 3 rows, 2 negative amounts): 8f525054bf9d3c93ced40857190b83296f1460ce73f3ebccd873eff02e06b9ab

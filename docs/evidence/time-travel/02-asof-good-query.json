@@ -1,0 +1,35 @@
+{
+  "ref": "time_travel_demo@e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2",
+  "rows": [
+    {
+      "batch_id": "batch-001",
+      "subscriber_id": "sub-001",
+      "amount_usd": "14.99",
+      "loaded_at": "2026-08-01 09:00:00"
+    },
+    {
+      "batch_id": "batch-001",
+      "subscriber_id": "sub-002",
+      "amount_usd": "9.99",
+      "loaded_at": "2026-08-01 09:00:00"
+    },
+    {
+      "batch_id": "batch-001",
+      "subscriber_id": "sub-003",
+      "amount_usd": "24.99",
+      "loaded_at": "2026-08-01 09:00:00"
+    },
+    {
+      "batch_id": "batch-001",
+      "subscriber_id": "sub-004",
+      "amount_usd": "14.99",
+      "loaded_at": "2026-08-01 09:00:00"
+    },
+    {
+      "batch_id": "batch-001",
+      "subscriber_id": "sub-005",
+      "amount_usd": "9.99",
+      "loaded_at": "2026-08-01 09:00:00"
+    }
+  ]
+}

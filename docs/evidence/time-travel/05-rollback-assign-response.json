@@ -1,0 +1,10 @@
+{
+  "ref_name": "time_travel_demo",
+  "expected_hash_before_reset": "8f525054bf9d3c93ced40857190b83296f1460ce73f3ebccd873eff02e06b9ab",
+  "target_hash": "e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2",
+  "reference_after_reset": {
+    "type": "BRANCH",
+    "name": "time_travel_demo",
+    "hash": "e90564dbd80cf94a1661d5b0430f08ca6e3f67bdb615b7588734a247a7d86ee2"
+  }
+}

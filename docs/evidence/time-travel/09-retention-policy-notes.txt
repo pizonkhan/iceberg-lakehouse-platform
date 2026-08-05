@@ -1,0 +1,127 @@
+Nessie retention and garbage collection: real mechanism, and the policy chosen for this
+project. Not narrated speculation: mechanism details below are drawn directly from
+Nessie's own docs (projectnessie.org/nessie-latest/gc/ and .../guides/management/,
+fetched 2026-08-05) and cross-checked against the live commit log evidence in this same
+directory (04 and 07). Nothing here was run against the live stack: this is a policy
+decision and a documented, not-yet-scheduled, command, per this work package's scope
+(building an actual scheduler is out of scope).
+
+WHAT ACTUALLY EXPIRES, AND WHAT DOESN'T
+----------------------------------------
+Nessie's own commit graph (every commit, on every branch, forever) is never
+automatically pruned. It lives in this project's Postgres JDBC store
+(infra/docker-compose.yml's nessie service, nessie.version.store.type: JDBC) and grows
+with every write: this project's own commit log evidence shows 3 real commits for one
+small demo table's 2 inserts plus its CREATE, and separately, ordinary dbt/elementary
+bookkeeping activity produces several more commits per single `dbt run` invocation
+(confirmed live while investigating this: a GET on main's history around an ordinary
+dbt run showed dbt_invocations, dbt_run_results, elementary_test_results each getting
+their own commit). Each commit row itself is small (no table data, just metadata), so
+Postgres growth from the commit graph alone is not the laptop-storage risk this policy
+exists to bound.
+
+The real risk is MinIO: every commit's data files, manifests, and metadata.json persist
+in s3://warehouse/... for as long as any named reference's history can still reach them,
+and nothing deletes them automatically. A table rebuilt repeatedly during normal
+development (dbt full-refresh, WAP branches, ad hoc demo work like this one) leaves an
+ever-growing trail of superseded files behind it, because this catalog's single-
+snapshot-per-commit design (docs/evidence/time-travel/10-root-cause-confirmation.txt)
+also means Iceberg's own `expire_snapshots` procedure has essentially nothing to expire
+per table (there is only ever one live snapshot to find), so it is not a usable lever
+here for the concern it normally addresses.
+
+The actual tool for this is a separate program, nessie-gc (its own JAR or Docker image,
+not part of this project's docker-compose.yml today), doing a two-phase mark-and-sweep:
+    - mark: walk every live named reference (branch, tag), apply a cutoff policy to
+      decide which of its commits still count as "live," and record every Content
+      reference (table/view version) those live commits point at.
+    - sweep: for each table, use Iceberg's own metadata to map those live content
+      references to actual data/manifest files, then delete files in the table's
+      location that are not in that live set.
+It deletes orphaned files only. It does not delete commits: a commit that becomes
+unreachable from any branch's HEAD (this project's own 07-nessie-history-after-
+rollback.json shows exactly this, hash_bad no longer listed) still exists as a row in
+Nessie's store; nessie-gc's mark phase simply never marks its content as live, so its
+data files become sweep-eligible once the cutoff policy for that reference makes it so.
+The commit graph itself is never pruned automatically; the only tool that can do that
+at all is the separate nessie-server-admin-tool's `cut-history` command, an advanced,
+effectively irreversible operation (permanently removes parent pointers from a named
+commit) meant for repositories with a genuine history-depth problem, not a routine
+maintenance action. This project's commit volume (a dev laptop, not a busy production
+catalog) does not come close to needing it, and it is not part of the policy below.
+
+Cutoff policies (nessie-gc's --cutoff / --default-cutoff flags) support three shapes:
+number of most-recent commits to keep, a duration relative to now, or an absolute
+timestamp, and can be set per reference by regex pattern as well as globally. Nessie
+GC's own documented default, if no cutoff is given at all, is NONE: every commit ever
+made is treated as live and nothing is ever swept. That default is the wrong choice for
+this project given the explicit constraint that storage must not grow unbounded on a
+laptop, so the policy below sets an explicit cutoff everywhere rather than relying on
+that default.
+
+POLICY CHOSEN FOR THIS PROJECT
+--------------------------------
+Per-reference cutoffs, justified by how each reference class is actually used here:
+
+    main=P14D
+        Two weeks. main is the only branch real downstream consumers (dbt, Trino's
+        static "iceberg" catalog, any future BI tool) ever read from. Two weeks
+        comfortably covers a normal active-development iteration window (this
+        project's own commit cadence, several commits per dbt run, means even a
+        single day of active work generates meaningful history) without ever
+        needing to time-travel further back than that in ordinary use. Nothing in
+        the approved project plan calls for auditing history older than a couple of
+        weeks; if that changes, this is a one-line policy edit, not a re-architect.
+
+    wap_.*=P3D
+        Three days. ops/wap.py already deletes a successful run's branch
+        immediately after merge (its files are by then referenced from main anyway,
+        so main's own P14D cutoff, not this one, governs them). This cutoff only
+        actually matters for failed branches, which ops/wap.py keeps by default
+        (--keep-failed-branch) specifically so a human can inspect what went wrong.
+        Three days is enough time for that inspection to happen before the branch's
+        files become sweep-eligible, short enough that a failed run nobody ever
+        looks at again does not pin its data files indefinitely.
+
+    time_travel_demo=P7D
+        One week. This project's own demonstration branch (this work package) and
+        the pattern any future purpose-built demo branch should follow. Worth
+        calling out specifically: as long as this branch exists, it also holds live
+        every real commit on main's history up to the point it was cut from (branch
+        creation does not copy anything, it just adds a second name pointing at the
+        same ancestry), so an uncapped demo branch would quietly pin an entire
+        slice of main's own historical files live forever purely as a side effect
+        of having been cut from main. A week bounds that side effect the same way
+        it bounds the demo branch's own footprint.
+
+    default-cutoff=P30D
+        A conservative 30-day backstop for anything not matched above: a one-off
+        scratch branch created and forgotten (this investigation itself created and
+        deleted one, tt_scratch_probe, by hand; the backstop exists for the case
+        where that deletion is forgotten), or any future reference pattern nobody
+        thought to add an explicit rule for. Deliberately not NONE (Nessie GC's own
+        default): this project's stated constraint is that storage must not grow
+        unbounded, and an explicit backstop is the only way to guarantee that holds
+        for references this policy did not anticipate.
+
+WHAT WOULD ACTUALLY RUN THIS
+------------------------------
+Not automatic, and not built in this work package (explicitly out of scope: "out of
+scope to build a scheduler here, just document what would run it"). The command a
+scheduled job would invoke, once nessie-gc is added to this stack (it is a separate
+artifact, not bundled in the nessie:0.108.4-java image this project already runs):
+
+    java -jar nessie-gc.jar gc \
+      --uri http://nessie:19120/api/v1 \
+      --default-cutoff P30D \
+      --cutoff 'main=P14D' \
+      --cutoff 'wap_.*=P3D' \
+      --cutoff 'time_travel_demo=P7D'
+
+A weekly cron entry or, if this project ever adds a job scheduler for infra maintenance
+(Dagster is already in this stack per docs/evidence/dagster/, but wired for the dbt DAG,
+not infra housekeeping), a scheduled job definition pointed at the same command, is
+what would actually run this on a cadence. Neither exists yet. Until one does, this
+policy is a documented intention, not an enforced guarantee, and MinIO usage should be
+spot-checked occasionally by hand (`du`-equivalent against the warehouse bucket) rather
+than assumed bounded.
