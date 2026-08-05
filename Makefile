@@ -1,4 +1,4 @@
-.PHONY: up down generate seed build test docs clean orchestrate
+.PHONY: up down generate seed deps build test docs clean orchestrate
 
 COMPOSE = docker compose -f infra/docker-compose.yml --env-file .env
 DBT = uv run dbt
@@ -32,12 +32,18 @@ generate:
 seed: up generate
 	uv run python -m ingestion.pipeline
 
+# dbt_packages/ (dbt_utils, dbt_expectations, elementary) is gitignored, dbt's
+# own convention, not committed. A fresh clone has none of it and both build
+# and test fail immediately without this.
+deps:
+	$(DBT) deps $(DBT_DIRS)
+
 # trino is the real target: every dimension and fact model in this project has
 # only ever been built and verified against the live Nessie/MinIO-backed
 # warehouse through Trino. The duckdb target exists in profiles.yml but is not
 # wired up to read the Nessie REST catalog and fails outright against every
 # real model (see .notes/decisions.md); it is not a working substitute today.
-build:
+build: deps
 	$(DBT) build $(DBT_DIRS) --target trino
 
 # Assumes `make build` has already populated dev_dimensions/dev_facts/dev_silver
@@ -46,7 +52,7 @@ build:
 # `dbt test` here audits the models `dbt build` already materialized rather than
 # rebuilding them, matching the write (dbt run) / audit (dbt test) split
 # ops/wap.py already uses for the same reason.
-test:
+test: deps
 	uv run pytest tests/unit tests/integration
 	$(DBT) test $(DBT_DIRS) --target trino
 
