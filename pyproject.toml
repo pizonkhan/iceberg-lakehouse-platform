@@ -79,4 +79,7 @@ disable_error_code = ["import-untyped"]
 [tool.pytest.ini_options]
 minversion = "9.0"
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: exercises a full-scale live table with a multi-pass chunked scan (minutes, not seconds) rather than a single query, see test_grain_violations.py for why fct_playback_events needs this",
+]
